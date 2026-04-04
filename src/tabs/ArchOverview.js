@@ -172,9 +172,115 @@ function PeriodCalcModal({ floors, onApply, onClose, sel, setSel, extraVal, setE
 
 const emptyPlot = () => ({ dong: '', type: '', mainNo: '', subNo: '', areaM2: '', areaPy: '', pricePerM2: '', totalPrice: '' });
 
+// ── 토지이용계획확인원 PDF 텍스트 파싱 ──
+const parseLandPdf = async (file) => {
+  const pdfjsLib = window['pdfjs-dist/build/pdf'];
+  if (!pdfjsLib) return null;
+  const arrayBuffer = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+  let text = '';
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const page = await pdf.getPage(i);
+    const content = await page.getTextContent();
+    text += content.items.map(item => item.str).join(' ');
+  }
+
+  // 소재지 파싱
+  const addrMatch = text.match(/소재지\s+([^
+]+?\d+(?:-\d+)?번지)/);
+  if (!addrMatch) return null;
+  const addr = addrMatch[1].trim();
+
+  // 행정동 추출
+  const dongMatch = addr.match(/(\S+(?:동|읍|면|리))/);
+  const dong = dongMatch ? dongMatch[1] : '';
+
+  // 구분: 산 여부
+  const isSan = /\s산\s/.test(addr) || /산\d+/.test(addr);
+  const type  = isSan ? '산' : '일반';
+
+  // 지번 파싱
+  const jibnumMatch = addr.match(/산?\s*(\d+)(?:-(\d+))?번지/);
+  const mainNo = jibnumMatch ? jibnumMatch[1] : '';
+  const subNo  = jibnumMatch && jibnumMatch[2] ? jibnumMatch[2] : '';
+
+  // 면적 파싱
+  const areaMatch = text.match(/면적\s*([\d,]+)\s*㎡/);
+  const areaM2Raw = areaMatch ? areaMatch[1].replace(/,/g, '') : '';
+
+  // 공시지가 파싱
+  const priceMatch = text.match(/개별공시지가[^\d]*([\d,]+)원/);
+  const priceRaw   = priceMatch ? priceMatch[1].replace(/,/g, '') : '';
+
+  return { dong, type, mainNo, subNo, areaM2Raw, priceRaw };
+};
+
 function LandModal({ plots, setPlots, onClose }) {
+  const [parsing, setParsing] = React.useState(false);
+  const [parseMsg, setParseMsg] = React.useState('');
+
   const addRow    = () => setPlots([...plots, emptyPlot()]);
   const removeRow = (i) => setPlots(plots.filter((_, idx) => idx !== i));
+
+  // PDF 다중 업로드 처리
+  const handlePdfUpload = async (e) => {
+    const files = Array.from(e.target.files);
+    if (!files.length) return;
+    setParsing(true);
+    setParseMsg(`${files.length}개 파일 분석 중...`);
+
+    // PDF.js 동적 로드
+    if (!window['pdfjs-dist/build/pdf']) {
+      await new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+        script.onload = () => {
+          window['pdfjs-dist/build/pdf'].GlobalWorkerOptions.workerSrc =
+            'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+          resolve();
+        };
+        script.onerror = reject;
+        document.head.appendChild(script);
+      });
+    }
+
+    const newPlots = [];
+    let successCount = 0;
+    for (const file of files) {
+      try {
+        const parsed = await parseLandPdf(file);
+        if (parsed) {
+          const { dong, type, mainNo, subNo, areaM2Raw, priceRaw } = parsed;
+          const areaM2Num = parseFloat(areaM2Raw) || 0;
+          const priceNum  = parseFloat(priceRaw)  || 0;
+          newPlots.push({
+            dong,
+            type,
+            mainNo,
+            subNo,
+            areaM2:     formatNumber(areaM2Raw),
+            areaPy:     m2ToPy(areaM2Raw),
+            pricePerM2: formatNumber(priceRaw),
+            totalPrice: (areaM2Num > 0 && priceNum > 0)
+              ? formatNumber(Math.round(areaM2Num * priceNum))
+              : '',
+          });
+          successCount++;
+        } else {
+          newPlots.push({ ...emptyPlot(), dong: `[파싱실패] ${file.name}` });
+        }
+      } catch {
+        newPlots.push({ ...emptyPlot(), dong: `[오류] ${file.name}` });
+      }
+    }
+
+    // 기존 비어있지 않은 행 유지 + 새 행 추가
+    const existingNonEmpty = plots.filter(p => p.dong || p.mainNo || p.areaM2);
+    setPlots([...existingNonEmpty, ...newPlots]);
+    setParseMsg(`✅ ${successCount}/${files.length}개 필지 추가됨`);
+    setParsing(false);
+    e.target.value = '';
+  };
 
   const update = (i, key, val) => {
     const next = plots.map((p, idx) => idx === i ? { ...p, [key]: val } : p);
@@ -210,7 +316,17 @@ function LandModal({ plots, setPlots, onClose }) {
       <div style={{ backgroundColor: 'white', borderRadius: '8px', padding: '24px', width: '95%', maxWidth: '960px', maxHeight: '85vh', overflowY: 'auto' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
           <h3 style={{ margin: 0 }}>토지조서</h3>
-          <div style={{ display: 'flex', gap: '8px' }}>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            {/* PDF 업로드 버튼 */}
+            <label style={{ padding: '6px 14px', backgroundColor: '#8e44ad', color: 'white', borderRadius: '4px', cursor: 'pointer', fontSize: '13px', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
+              📄 PDF 불러오기
+              <input type="file" accept=".pdf" multiple onChange={handlePdfUpload} style={{ display: 'none' }} disabled={parsing} />
+            </label>
+            {parseMsg && (
+              <span style={{ fontSize: '12px', color: parseMsg.startsWith('✅') ? '#27ae60' : '#e67e22' }}>
+                {parsing ? '⏳ ' : ''}{parseMsg}
+              </span>
+            )}
             <button onClick={addRow}  style={{ padding: '6px 14px', backgroundColor: '#2980b9', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '13px' }}>+ 필지 추가</button>
             <button onClick={onClose} style={{ padding: '6px 14px', backgroundColor: '#27ae60', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '13px' }}>저장 후 닫기</button>
           </div>
@@ -308,19 +424,8 @@ function ArchOverview({ data, onChange, onSave, saving }) {
       </div>
 
       {sectionTitle('기본정보')}
-      {/* 프로젝트명 + 제출처 한 줄 */}
-      <div style={{ marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '12px' }}>
-        <label style={{ width: '170px', fontWeight: 'bold', fontSize: '13px', flexShrink: 0 }}>프로젝트명</label>
-        <input value={data.projectName || ''}
-          onChange={e => onChange({ ...data, projectName: e.target.value })}
-          style={{ flex: 2, padding: '6px 10px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '13px' }} />
-        <label style={{ fontWeight: 'bold', fontSize: '13px', flexShrink: 0, marginLeft: '8px' }}>제출처</label>
-        <input value={data.submitTo || ''}
-          onChange={e => onChange({ ...data, submitTo: e.target.value })}
-          placeholder="비워두면 원본"
-          style={{ flex: 1, padding: '6px 10px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '13px', color: data.submitTo ? '#c0392b' : '#aaa' }} />
-      </div>
-      {textField('주소', 'address', data, onChange)}
+      {textField('프로젝트명', 'projectName', data, onChange)}
+      {textField('주소',       'address',     data, onChange)}
       {textField('지역지구',   'zone',        data, onChange)}
 
       {/* 허가구분 */}
