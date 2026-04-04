@@ -186,8 +186,7 @@ const parseLandPdf = async (file) => {
   }
 
   // 소재지 파싱
-  const addrMatch = text.match(/소재지\s+([^
-]+?\d+(?:-\d+)?번지)/);
+  const addrMatch = text.match(/소재지[\s\S]{1,50}?(\S+(?:동|읍|면|리)[\s\S]{1,30}?\d+(?:-\d+)?번지)/);
   if (!addrMatch) return null;
   const addr = addrMatch[1].trim();
 
