@@ -366,23 +366,31 @@ function BalconySection({ aptRows, publicRows, balcony, onChange, burden, setBur
 }
 
 function Income({ data, onChange, onSave, saving, salesData }) {
-  const aptRows   = data.aptRows   || [];
-  const offiRows  = data.offiRows  || [];
-  const storeRows = data.storeRows || [];
-  const balcony   = data.balcony   || {};
+  const aptRows        = data.aptRows    || [];
+  const publicRows     = data.publicRows || [];
+  const offiRows       = data.offiRows   || [];
+  const storeRows      = data.storeRows  || [];
+  const pubfacRows     = data.pubfacRows || [];
+  const balcony        = data.balcony    || {};
+  const balIncludePublic = data.balIncludePublic || false;
   const [modal, setModal] = useState(null);
   const [unit,  setUnit]  = useState('㎡');
 
   const update = (key, val) => onChange({ ...data, [key]: val });
 
+  const sectionKey = (section) => ({
+    apt: 'aptRows', public: 'publicRows', offi: 'offiRows',
+    store: 'storeRows', pubfac: 'pubfacRows'
+  }[section] || 'aptRows');
+
   const openAdd  = (section) => setModal({ section, index: null, init: emptyApt() });
   const openEdit = (section, index) => {
-    const rows = section === 'apt' ? aptRows : section === 'offi' ? offiRows : storeRows;
+    const rows = data[sectionKey(section)] || [];
     setModal({ section, index, init: { ...rows[index] } });
   };
   const handleConfirm = (row) => {
     const { section, index } = modal;
-    const key  = section === 'apt' ? 'aptRows' : section === 'offi' ? 'offiRows' : 'storeRows';
+    const key  = sectionKey(section);
     const rows = data[key] || [];
     if (index === null) update(key, [...rows, row]);
     else update(key, rows.map((r, i) => i === index ? row : r));
@@ -390,29 +398,39 @@ function Income({ data, onChange, onSave, saving, salesData }) {
   };
   const handleRemove = (section, index) => {
     if (!window.confirm('삭제하시겠습니까?')) return;
-    const key  = section === 'apt' ? 'aptRows' : section === 'offi' ? 'offiRows' : 'storeRows';
+    const key  = sectionKey(section);
     const rows = data[key] || [];
     update(key, rows.filter((_, i) => i !== index));
   };
 
   const [showCrossCheck, setShowCrossCheck] = useState(false);
 
-  const aptTotal   = aptRows.reduce((s, r)   => s + calcRow(r, 'apt').total,   0);
-  const balTotal = (data.balconyBurden || '분양자 부담') === '분양자 부담'
-    ? aptRows.reduce((s, r) => s + (parseFloat(parseNumber(r.units))||0)*(parseFloat(parseNumber(balcony[r.type]||'0'))||0), 0)
+  const aptTotal    = aptRows.reduce((s, r)    => s + calcRow(r, 'apt').total,   0);
+  const publicTotal = publicRows.reduce((s, r) => s + calcRow(r, 'apt').total,   0);
+  const balBaseRows = balIncludePublic ? [...aptRows, ...publicRows] : aptRows;
+  const balTotal    = (data.balconyBurden || '분양자 부담') === '분양자 부담'
+    ? balBaseRows.reduce((s, r) => s + (parseFloat(parseNumber(r.units))||0)*(parseFloat(parseNumber(balcony[r.type]||'0'))||0), 0)
     : 0;
-  const offiTotal  = offiRows.reduce((s, r)  => s + calcRow(r, 'offi').total,  0);
-  const storeTotal = storeRows.reduce((s, r) => s + calcRow(r, 'store').total, 0);
-  const grandTotal = aptTotal + balTotal + offiTotal + storeTotal;
+  const offiTotal   = offiRows.reduce((s, r)   => s + calcRow(r, 'offi').total,  0);
+  const storeTotal  = storeRows.reduce((s, r)  => s + calcRow(r, 'store').total, 0);
+  const pubfacTotal = pubfacRows.reduce((s, r) => s + calcRow(r, 'store').total, 0);
+  const grandTotal  = aptTotal + publicTotal + balTotal + offiTotal + storeTotal + pubfacTotal;
 
   // VAT 계산 (수입탭 원천)
   const aptVatTotal = aptRows.reduce((s, r) => {
     const c = calcRow(r, 'apt');
     return s + (c.vat_free ? 0 : Math.round(c.total * 0.1));
   }, 0);
-  const offiVatTotal  = offiRows.reduce((s, r) => s + Math.round(calcRow(r, 'offi').total * 0.1), 0);
-  const storeVatTotal = storeRows.reduce((s, r) => s + Math.round(calcRow(r, 'store').total * 0.1), 0);
-  const grandVatTotal = aptVatTotal + offiVatTotal + storeVatTotal;
+  // 공공주택: 85㎡ 기준 면세/과세 (공동주택과 동일)
+  const publicVatTotal = publicRows.reduce((s, r) => {
+    const c = calcRow(r, 'apt');
+    return s + (c.vat_free ? 0 : Math.round(c.total * 0.1));
+  }, 0);
+  const offiVatTotal   = offiRows.reduce((s, r) => s + Math.round(calcRow(r, 'offi').total * 0.1), 0);
+  const storeVatTotal  = storeRows.reduce((s, r) => s + Math.round(calcRow(r, 'store').total * 0.1), 0);
+  // 공공시설: 무조건 과세
+  const pubfacVatTotal = pubfacRows.reduce((s, r) => s + Math.round(calcRow(r, 'store').total * 0.1), 0);
+  const grandVatTotal  = aptVatTotal + publicVatTotal + offiVatTotal + storeVatTotal + pubfacVatTotal;
 
   return (
     <div>
