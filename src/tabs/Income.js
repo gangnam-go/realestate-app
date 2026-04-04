@@ -42,9 +42,11 @@ const calcRow = (row, mode = 'apt') => {
 
 const COLORS = {
   apt:     { main: '#4a7fb5', light: '#eaf1f8', header: '#3d6a99' },
+  public:  { main: '#1a7a4a', light: '#e8f8f0', header: '#15623c' },
   balcony: { main: '#7d6b9e', light: '#f3f0f8', header: '#6a5a8a' },
   offi:    { main: '#3d8f7c', light: '#eaf5f2', header: '#347a6a' },
   store:   { main: '#b06030', light: '#f8f0ea', header: '#965228' },
+  pubfac:  { main: '#b7770d', light: '#fef9e7', header: '#9a6309' },
 };
 
 function UnitToggle({ unit, setUnit }) {
