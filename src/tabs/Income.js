@@ -260,9 +260,11 @@ function IncomeSection({ title, color, rows, onAdd, onEdit, onRemove, mode = 'ap
   );
 }
 
-function BalconySection({ aptRows, balcony, onChange, burden, setBurden }) {
+function BalconySection({ aptRows, publicRows, balcony, onChange, burden, setBurden, balIncludePublic, setBalIncludePublic }) {
   const color = COLORS.balcony;
-  const total = aptRows.reduce((s, r) => {
+  // 공공주택 포함 여부에 따라 표시할 rows 결정
+  const displayRows = balIncludePublic ? [...aptRows, ...publicRows] : aptRows;
+  const total = displayRows.reduce((s, r) => {
     const units = parseFloat(parseNumber(r.units)) || 0;
     const price = parseFloat(parseNumber(balcony[r.type] || '0')) || 0;
     return s + units * price;
@@ -274,7 +276,16 @@ function BalconySection({ aptRows, balcony, onChange, burden, setBurden }) {
   return (
     <div style={{ marginBottom: '28px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-        <div style={{ fontWeight: 'bold', fontSize: '14px', color: color.main }}>발코니확장</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{ fontWeight: 'bold', fontSize: '14px', color: color.main }}>발코니확장</div>
+          {/* 공공주택 포함 체크박스 */}
+          <label style={{ display: 'flex', alignItems: 'center', gap: '5px', cursor: 'pointer', fontSize: '12px', color: '#555' }}>
+            <input type="checkbox" checked={!!balIncludePublic}
+              onChange={e => setBalIncludePublic(e.target.checked)}
+              style={{ cursor: 'pointer' }} />
+            공공주택 포함
+          </label>
+        </div>
         {/* 부담 선택 */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <span style={{ fontSize: '12px', color: '#555', fontWeight: 'bold' }}>비용 부담:</span>
@@ -300,10 +311,10 @@ function BalconySection({ aptRows, balcony, onChange, burden, setBurden }) {
             <tr>{['타입', '세대수', '세대당단가(천원)', '매출액(천원)', '부가세'].map(h => <th key={h} style={th}>{h}</th>)}</tr>
           </thead>
           <tbody>
-            {aptRows.length === 0 && (
+            {displayRows.length === 0 && (
               <tr><td colSpan={5} style={{ textAlign: 'center', padding: '20px', color: '#aaa', fontSize: '13px' }}>공동주택 타입을 먼저 추가하세요</td></tr>
             )}
-            {aptRows.map((r, i) => {
+            {displayRows.map((r, i) => {
               const units  = parseFloat(parseNumber(r.units)) || 0;
               const price  = parseFloat(parseNumber(balcony[r.type] || '')) || 0;
               const amt    = (burden || '분양자 부담') === '분양자 부담' ? units * price : 0;
@@ -337,7 +348,7 @@ function BalconySection({ aptRows, balcony, onChange, burden, setBurden }) {
               );
             })}
           </tbody>
-          {aptRows.length > 0 && (
+          {displayRows.length > 0 && (
             <tfoot>
               <tr style={{ backgroundColor: '#f0f0f0', fontWeight: 'bold' }}>
                 <td colSpan={3} style={{ padding: '7px 10px', fontSize: '12px', textAlign: 'right' }}>합계</td>
@@ -561,24 +572,36 @@ function Income({ data, onChange, onSave, saving, salesData }) {
       <IncomeSection title="공동주택" color={COLORS.apt} mode="apt" unit={unit}
         rows={aptRows} onAdd={() => openAdd('apt')} onEdit={i => openEdit('apt', i)} onRemove={i => handleRemove('apt', i)} />
 
-      <BalconySection aptRows={aptRows} balcony={balcony} onChange={val => update('balcony', val)}
+      <IncomeSection title="공공주택" color={COLORS.public} mode="apt" unit={unit}
+        rows={publicRows} onAdd={() => openAdd('public')} onEdit={i => openEdit('public', i)} onRemove={i => handleRemove('public', i)} />
+
+      <BalconySection aptRows={aptRows} publicRows={publicRows}
+        balcony={balcony} onChange={val => update('balcony', val)}
         burden={data.balconyBurden || '분양자 부담'}
-        setBurden={val => onChange({...data, balconyBurden: val})} />
+        setBurden={val => onChange({...data, balconyBurden: val})}
+        balIncludePublic={balIncludePublic}
+        setBalIncludePublic={val => update('balIncludePublic', val)} />
+
       <IncomeSection title="오피스텔" color={COLORS.offi} mode="offi" unit={unit}
         rows={offiRows} onAdd={() => openAdd('offi')} onEdit={i => openEdit('offi', i)} onRemove={i => handleRemove('offi', i)} />
 
       <IncomeSection title="근린상가" color={COLORS.store} mode="store" unit={unit}
         rows={storeRows} onAdd={() => openAdd('store')} onEdit={i => openEdit('store', i)} onRemove={i => handleRemove('store', i)} />
 
+      <IncomeSection title="공공시설" color={COLORS.pubfac} mode="store" unit={unit}
+        rows={pubfacRows} onAdd={() => openAdd('pubfac')} onEdit={i => openEdit('pubfac', i)} onRemove={i => handleRemove('pubfac', i)} />
+
       <div style={{ backgroundColor: '#2c3e50', color: 'white', borderRadius: '8px', padding: '16px 20px', marginTop: '8px' }}>
         {/* 카테고리별 공급가 / 부가세 / 총액 */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '12px', fontSize: '13px', marginBottom: '14px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '12px', fontSize: '13px', marginBottom: '14px' }}>
           {[
-            { label: '공동주택',   supply: aptTotal,   vat: aptVatTotal },
-            { label: '발코니확장', supply: balTotal,   vat: 0 },
-            { label: '오피스텔',  supply: offiTotal,  vat: offiVatTotal },
-            { label: '근린상가',  supply: storeTotal, vat: storeVatTotal },
-          ].map(({ label, supply, vat }) => (
+            { label: '공동주택',  supply: aptTotal,    vat: aptVatTotal    },
+            { label: '공공주택',  supply: publicTotal, vat: publicVatTotal },
+            { label: '발코니확장',supply: balTotal,    vat: 0              },
+            { label: '오피스텔', supply: offiTotal,   vat: offiVatTotal   },
+            { label: '근린상가', supply: storeTotal,  vat: storeVatTotal  },
+            { label: '공공시설', supply: pubfacTotal, vat: pubfacVatTotal },
+          ].filter(({ supply, vat }) => supply > 0 || vat > 0).map(({ label, supply, vat }) => (
             <div key={label}>
               <div style={{ opacity: 0.65, marginBottom: '6px', fontSize: '12px', fontWeight: 'bold' }}>{label}</div>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '3px' }}>
