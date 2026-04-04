@@ -172,6 +172,29 @@ function PeriodCalcModal({ floors, onApply, onClose, sel, setSel, extraVal, setE
 
 const emptyPlot = () => ({ dong: '', type: '', mainNo: '', subNo: '', areaM2: '', areaPy: '', pricePerM2: '', totalPrice: '' });
 
+// ── OCR txt 파일 파싱 (여러 파일 한번에) ──
+const parseLandOcrText = (text) => {
+  // 소재지 파싱
+  const addrMatch = text.match(/소재지\s*([가-힣\s]+?(?:동|읍|면|리))\s*(산)?\s*(\d+)(?:[-\s]*(\d+))?번지/);
+  if (!addrMatch) return null;
+
+  const dong   = addrMatch[1].trim().match(/\S+(?:동|읍|면|리)/)?.[0] || '';
+  const isSan  = !!addrMatch[2];
+  const type   = isSan ? '산' : '일반';
+  const mainNo = addrMatch[3] || '';
+  const subNo  = addrMatch[4] || '';
+
+  // 면적 파싱: "4,461 m" 또는 "4,461 ㎡" (OCR에서 ㎡→m 오류 대응)
+  const areaMatch = text.match(/면적\s*([\d,\.]+)\s*(?:㎡|m²|m\b)/);
+  const areaM2Raw = areaMatch ? areaMatch[1].replace(/,/g, '') : '';
+
+  // 공시지가 파싱
+  const priceMatch = text.match(/개별공시지가[^\d]*([\d,]+)원/);
+  const priceRaw   = priceMatch ? priceMatch[1].replace(/,/g, '') : '';
+
+  return { dong, type, mainNo, subNo, areaM2Raw, priceRaw };
+};
+
 // ── 토지이음 복사 텍스트 파싱 ──
 const parseLandText = (text) => {
   // 소재지에서 행정동/구분/본번/부번 추출
@@ -306,6 +329,51 @@ function LandModal({ plots, setPlots, onClose }) {
     e.target.value = '';
   };
 
+  // OCR txt 파일 업로드 처리
+  const handleTxtUpload = async (e) => {
+    const files = Array.from(e.target.files);
+    if (!files.length) return;
+    setParsing(true);
+    setParseMsg(`${files.length}개 파일 분석 중...`);
+
+    const newPlots = [];
+    let successCount = 0;
+    for (const file of files) {
+      try {
+        const text = await file.text();
+        const parsed = parseLandOcrText(text);
+        if (parsed) {
+          const { dong, type, mainNo, subNo, areaM2Raw, priceRaw } = parsed;
+          const areaM2Num = parseFloat(areaM2Raw) || 0;
+          const priceNum  = parseFloat(priceRaw)  || 0;
+          newPlots.push({
+            dong,
+            type,
+            mainNo,
+            subNo,
+            areaM2:     formatNumber(areaM2Raw),
+            areaPy:     m2ToPy(areaM2Raw),
+            pricePerM2: formatNumber(priceRaw),
+            totalPrice: (areaM2Num > 0 && priceNum > 0)
+              ? formatNumber(Math.round(areaM2Num * priceNum))
+              : '',
+          });
+          successCount++;
+        } else {
+          newPlots.push({ ...emptyPlot(), dong: `[파싱실패] ${file.name}` });
+        }
+      } catch {
+        newPlots.push({ ...emptyPlot(), dong: `[오류] ${file.name}` });
+      }
+    }
+
+    const existingNonEmpty = plots.filter(p => p.dong || p.mainNo || p.areaM2);
+    setPlots([...existingNonEmpty, ...newPlots]);
+    setParseMsg(`✅ ${successCount}/${files.length}개 필지 추가됨 (숫자 확인 권장)`);
+    setParsing(false);
+    e.target.value = '';
+  };
+
   // 텍스트 붙여넣기 파싱
   const handlePasteParse = () => {
     if (!pasteText.trim()) return alert('텍스트를 붙여넣어 주세요');
@@ -382,6 +450,11 @@ function LandModal({ plots, setPlots, onClose }) {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
           <h3 style={{ margin: 0 }}>토지조서</h3>
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+            {/* OCR txt 파일 업로드 버튼 */}
+            <label style={{ padding: '6px 14px', backgroundColor: '#c0392b', color: 'white', borderRadius: '4px', cursor: 'pointer', fontSize: '13px', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
+              📂 OCR txt 불러오기
+              <input type="file" accept=".txt" multiple onChange={handleTxtUpload} style={{ display: 'none' }} disabled={parsing} />
+            </label>
             {/* 토지이음 텍스트 붙여넣기 버튼 */}
             <button onClick={() => setShowPaste(!showPaste)}
               style={{ padding: '6px 14px', backgroundColor: '#1a6a3a', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '13px', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
