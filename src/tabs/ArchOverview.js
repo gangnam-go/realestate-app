@@ -172,6 +172,29 @@ function PeriodCalcModal({ floors, onApply, onClose, sel, setSel, extraVal, setE
 
 const emptyPlot = () => ({ dong: '', type: '', mainNo: '', subNo: '', areaM2: '', areaPy: '', pricePerM2: '', totalPrice: '' });
 
+// ── 토지이음 복사 텍스트 파싱 ──
+const parseLandText = (text) => {
+  // 소재지에서 행정동/구분/본번/부번 추출
+  const addrMatch = text.match(/소재지\s*([가-힣\s]+?(?:동|읍|면|리))\s*(산)?\s*(\d+)(?:[-\s]*(\d+))?번지/);
+  if (!addrMatch) return null;
+
+  const dong   = addrMatch[1].trim().match(/\S+(?:동|읍|면|리)/)?.[0] || '';
+  const isSan  = !!addrMatch[2];
+  const type   = isSan ? '산' : '일반';
+  const mainNo = addrMatch[3] || '';
+  const subNo  = addrMatch[4] || '';
+
+  // 면적 파싱: "483.4 ㎡" 또는 "4,461 ㎡"
+  const areaMatch  = text.match(/면적\s*([\d,\.]+)\s*㎡/);
+  const areaM2Raw  = areaMatch ? areaMatch[1].replace(/,/g, '') : '';
+
+  // 공시지가 파싱: "5,999,000원"
+  const priceMatch = text.match(/개별공시지가[^\d]*([\d,]+)원/);
+  const priceRaw   = priceMatch ? priceMatch[1].replace(/,/g, '') : '';
+
+  return { dong, type, mainNo, subNo, areaM2Raw, priceRaw };
+};
+
 // ── 토지이용계획확인원 PDF 텍스트 파싱 ──
 const parseLandPdf = async (file) => {
   const pdfjsLib = window['pdfjs-dist/build/pdf'];
@@ -215,8 +238,10 @@ const parseLandPdf = async (file) => {
 };
 
 function LandModal({ plots, setPlots, onClose }) {
-  const [parsing, setParsing] = React.useState(false);
-  const [parseMsg, setParseMsg] = React.useState('');
+  const [parsing,   setParsing]   = React.useState(false);
+  const [parseMsg,  setParseMsg]  = React.useState('');
+  const [showPaste, setShowPaste] = React.useState(false);
+  const [pasteText, setPasteText] = React.useState('');
 
   const addRow    = () => setPlots([...plots, emptyPlot()]);
   const removeRow = (i) => setPlots(plots.filter((_, idx) => idx !== i));
@@ -281,6 +306,47 @@ function LandModal({ plots, setPlots, onClose }) {
     e.target.value = '';
   };
 
+  // 텍스트 붙여넣기 파싱
+  const handlePasteParse = () => {
+    if (!pasteText.trim()) return alert('텍스트를 붙여넣어 주세요');
+
+    // 여러 필지: "소재지" 키워드 기준으로 분리
+    const chunks = pasteText.split(/(?=소재지)/).filter(c => c.trim());
+    if (chunks.length === 0) return alert('소재지 정보를 찾을 수 없습니다');
+
+    const newPlots = [];
+    let successCount = 0;
+    for (const chunk of chunks) {
+      const parsed = parseLandText(chunk);
+      if (parsed) {
+        const { dong, type, mainNo, subNo, areaM2Raw, priceRaw } = parsed;
+        const areaM2Num = parseFloat(areaM2Raw) || 0;
+        const priceNum  = parseFloat(priceRaw)  || 0;
+        newPlots.push({
+          dong,
+          type,
+          mainNo,
+          subNo,
+          areaM2:     formatNumber(areaM2Raw),
+          areaPy:     m2ToPy(areaM2Raw),
+          pricePerM2: formatNumber(priceRaw),
+          totalPrice: (areaM2Num > 0 && priceNum > 0)
+            ? formatNumber(Math.round(areaM2Num * priceNum))
+            : '',
+        });
+        successCount++;
+      }
+    }
+
+    if (newPlots.length === 0) return alert('파싱할 수 있는 토지 정보가 없습니다\n소재지, 면적, 개별공시지가가 포함된 텍스트를 붙여넣으세요');
+
+    const existingNonEmpty = plots.filter(p => p.dong || p.mainNo || p.areaM2);
+    setPlots([...existingNonEmpty, ...newPlots]);
+    setParseMsg(`✅ ${successCount}/${chunks.length}개 필지 추가됨`);
+    setPasteText('');
+    setShowPaste(false);
+  };
+
   const update = (i, key, val) => {
     const next = plots.map((p, idx) => idx === i ? { ...p, [key]: val } : p);
     if (key === 'areaM2') {
@@ -315,20 +381,47 @@ function LandModal({ plots, setPlots, onClose }) {
       <div style={{ backgroundColor: 'white', borderRadius: '8px', padding: '24px', width: '95%', maxWidth: '960px', maxHeight: '85vh', overflowY: 'auto' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
           <h3 style={{ margin: 0 }}>토지조서</h3>
-          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-            {/* PDF 업로드 버튼 */}
-            <label style={{ padding: '6px 14px', backgroundColor: '#8e44ad', color: 'white', borderRadius: '4px', cursor: 'pointer', fontSize: '13px', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
-              📄 PDF 불러오기
-              <input type="file" accept=".pdf" multiple onChange={handlePdfUpload} style={{ display: 'none' }} disabled={parsing} />
-            </label>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+            {/* 토지이음 텍스트 붙여넣기 버튼 */}
+            <button onClick={() => setShowPaste(!showPaste)}
+              style={{ padding: '6px 14px', backgroundColor: '#1a6a3a', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '13px', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
+              📋 토지이음 붙여넣기
+            </button>
             {parseMsg && (
               <span style={{ fontSize: '12px', color: parseMsg.startsWith('✅') ? '#27ae60' : '#e67e22' }}>
-                {parsing ? '⏳ ' : ''}{parseMsg}
+                {parseMsg}
               </span>
             )}
             <button onClick={addRow}  style={{ padding: '6px 14px', backgroundColor: '#2980b9', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '13px' }}>+ 필지 추가</button>
             <button onClick={onClose} style={{ padding: '6px 14px', backgroundColor: '#27ae60', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '13px' }}>저장 후 닫기</button>
           </div>
+          {/* 붙여넣기 영역 */}
+          {showPaste && (
+            <div style={{ marginTop: '12px', backgroundColor: '#f0faf4', border: '1px solid #a9dfbf', borderRadius: '6px', padding: '14px' }}>
+              <div style={{ fontSize: '12px', color: '#1a6a3a', fontWeight: 'bold', marginBottom: '6px' }}>
+                📋 토지이음에서 복사한 텍스트를 붙여넣으세요
+              </div>
+              <div style={{ fontSize: '11px', color: '#888', marginBottom: '8px' }}>
+                여러 필지는 각 필지 텍스트를 순서대로 붙여넣으면 됩니다 (소재지 키워드 기준으로 자동 분리)
+              </div>
+              <textarea
+                value={pasteText}
+                onChange={e => setPasteText(e.target.value)}
+                placeholder="소재지서울특별시 금천구 독산동 1030-1번지지목대면적4,461 ㎡개별공시지가(㎡당)11,910,000원..."
+                style={{ width: '100%', height: '100px', padding: '8px', border: '1px solid #a9dfbf', borderRadius: '4px', fontSize: '12px', boxSizing: 'border-box', resize: 'vertical', fontFamily: 'monospace' }}
+              />
+              <div style={{ display: 'flex', gap: '8px', marginTop: '8px', justifyContent: 'flex-end' }}>
+                <button onClick={() => { setShowPaste(false); setPasteText(''); setParseMsg(''); }}
+                  style={{ padding: '6px 14px', backgroundColor: '#95a5a6', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '13px' }}>
+                  취소
+                </button>
+                <button onClick={handlePasteParse}
+                  style={{ padding: '6px 18px', backgroundColor: '#1a6a3a', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '13px', fontWeight: 'bold' }}>
+                  ✅ 파싱하기
+                </button>
+              </div>
+            </div>
+          )}
         </div>
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
