@@ -249,12 +249,11 @@ function LandCostSection({ data, onChange, archData }) {
   const update = (key, val) => onChange({ ...d, [key]: val });
   const updateFunding = (key, val) => onChange({ ...d, [`${key}_funding`]: val });
 
-  // ── 토지매입비 계산 ──
-  // override(총액직접입력)가 있으면 그걸 사용, 없으면 평당단가 × 대지면적(평)
+  // ── 토지매입비 계산 (그룹별 합계 — 아래 그룹 계산 후 집계) ──
+  // 임시 landAmt (그룹 계산 전 fallback용)
   const pyPrice   = parseFloat(parseNumber(d.landPyPrice)) || 0;
   const calcLand  = Math.round(pyPrice * parseFloat(totalPy));
   const overrideAmt = parseFloat(parseNumber(d.landOverride));
-  const landAmt   = overrideAmt > 0 ? overrideAmt : calcLand;
 
   // ── 취득세 ──
   const acqRate   = parseFloat(d.acqTaxRate ?? '4.6') || 0;
@@ -281,25 +280,42 @@ function LandCostSection({ data, onChange, archData }) {
     ? Math.round(landAmt * legalRate / 100)
     : parseFloat(parseNumber(d.legalDirect)) || 0;
 
-  // ── 중개수수료 (그룹별) ──
-  const agentMode = d.agentMode || 'rate';
-  // 그룹별 토지금액 합산 (plots의 group 필드 기준, totalPrice는 원 단위 → 천원으로 변환)
+  // ── 그룹별 면적 계산 ──
   const groups = ['A','B','C','D'];
-  const groupAmts = {};
+  const groupPlots = {};
+  const groupPy = {};
   groups.forEach(g => {
-    const gPlots = plots.filter(p => (p.group || 'A') === g);
-    // totalPrice가 원 단위이므로 /1000 → 천원
-    groupAmts[g] = gPlots.reduce((s, p) => s + (parseFloat(parseNumber(p.totalPrice)) || 0), 0) / 1000;
+    groupPlots[g] = plots.filter(p => (p.group || 'A') === g);
+    const gM2 = groupPlots[g].reduce((s, p) => s + (parseFloat(parseNumber(p.areaM2)) || 0), 0);
+    groupPy[g] = gM2 * 0.3025;
   });
-  const activeGroups = groups.filter(g => groupAmts[g] > 0);
-  // 그룹별 요율
+  const activeGroups = groups.filter(g => groupPy[g] > 0);
+
+  // ── 토지매입비 (그룹별) ──
+  const landGroupData = d.landGroups || {};
+  const groupLandAmts = {};
+  activeGroups.forEach(g => {
+    const gd = landGroupData[g] || {};
+    const pyPrice = parseFloat(parseNumber(gd.pyPrice)) || 0;
+    const calcAmt = Math.round(pyPrice * groupPy[g]);
+    const overrideAmt = parseFloat(parseNumber(gd.override));
+    groupLandAmts[g] = overrideAmt > 0 ? overrideAmt : calcAmt;
+  });
+
+  // ── 중개수수료 (그룹별 토지매입비 기준) ──
+  const agentMode = d.agentMode || 'rate';
   const agentGroupRates = d.agentGroupRates || {};
   const agentAmt = agentMode === 'rate'
     ? activeGroups.reduce((s, g) => {
         const rate = parseFloat(agentGroupRates[g] ?? '0.5') || 0;
-        return s + Math.round(groupAmts[g] * rate / 100);
+        return s + Math.round(groupLandAmts[g] * rate / 100);
       }, 0)
     : parseFloat(parseNumber(d.agentDirect)) || 0;
+
+  // ── 토지매입비 합계 (그룹별 합산, 그룹 없으면 기존 단일 입력) ──
+  const landAmt = activeGroups.length > 0
+    ? activeGroups.reduce((s, g) => s + groupLandAmts[g], 0)
+    : (overrideAmt > 0 ? overrideAmt : calcLand);
 
   // ── 기타 항목 ──
   const etcItems  = d.etcItems || [];
