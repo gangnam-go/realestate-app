@@ -2175,37 +2175,47 @@ const calcRowI = (row, mode = 'apt') => {
 };
 
 function IncomeReport({ incomeData, projectName }) {
-  const aptRows   = incomeData?.aptRows   || [];
-  const offiRows  = incomeData?.offiRows  || [];
-  const storeRows = incomeData?.storeRows || [];
-  const balcony   = incomeData?.balcony   || {};
-  const balBurden = incomeData?.balconyBurden || '분양자 부담';
+  const aptRows        = incomeData?.aptRows        || [];
+  const publicRows     = incomeData?.publicRows     || [];
+  const offiRows       = incomeData?.offiRows       || [];
+  const storeRows      = incomeData?.storeRows      || [];
+  const pubfacRows     = incomeData?.pubfacRows     || [];
+  const balcony        = incomeData?.balcony        || {};
+  const balBurden      = incomeData?.balconyBurden  || '분양자 부담';
+  const balIncludePublic = incomeData?.balIncludePublic || false;
 
-  const balRows = aptRows.map(r => {
+  // 발코니: 공공주택 포함 여부에 따라 기준 rows 결정
+  const balBaseRows = balIncludePublic ? [...aptRows, ...publicRows] : aptRows;
+  const balRows = balBaseRows.map(r => {
     const units = pnI(r.units);
     const price = pnI(balcony[r.type] || '0');
     return { type: r.type, units, price, total: units * price };
   }).filter(r => r.price > 0);
 
   // ── 섹션별 합계 ──
-  const aptTotal   = aptRows.reduce((s, r) => s + calcRowI(r, 'apt').total, 0);
-  const balTotal   = balBurden === '분양자 부담' ? balRows.reduce((s, r) => s + r.total, 0) : 0;
-  const offiTotal  = offiRows.reduce((s, r) => s + calcRowI(r, 'offi').total, 0);
-  const storeTotal = storeRows.reduce((s, r) => s + calcRowI(r, 'store').total, 0);
-  const grandTotal = aptTotal + balTotal + offiTotal + storeTotal;
+  const aptTotal    = aptRows.reduce((s, r)    => s + calcRowI(r, 'apt').total,   0);
+  const publicTotal = publicRows.reduce((s, r) => s + calcRowI(r, 'apt').total,   0);
+  const balTotal    = balBurden === '분양자 부담' ? balRows.reduce((s, r) => s + r.total, 0) : 0;
+  const offiTotal   = offiRows.reduce((s, r)   => s + calcRowI(r, 'offi').total,  0);
+  const storeTotal  = storeRows.reduce((s, r)  => s + calcRowI(r, 'store').total, 0);
+  const pubfacTotal = pubfacRows.reduce((s, r) => s + calcRowI(r, 'store').total, 0);
+  const grandTotal  = aptTotal + publicTotal + balTotal + offiTotal + storeTotal + pubfacTotal;
 
   // ── 전체 계약면적 합계 (발코니 제외) — 계약/전체연면적(%) 분모 ──
   const calcContPy = (rows, mode) => rows.reduce((s, r) => {
     const c = calcRowI(r, mode);
     return s + c.cont_py * pnI(r.units);
   }, 0);
-  const totalContPy = calcContPy(aptRows, 'apt') + calcContPy(offiRows, 'offi') + calcContPy(storeRows, 'store');
+  const totalContPy = calcContPy(aptRows, 'apt') + calcContPy(publicRows, 'apt')
+                    + calcContPy(offiRows, 'offi') + calcContPy(storeRows, 'store')
+                    + calcContPy(pubfacRows, 'store');
 
   // ── 합계행 면적 합계 ──
-  const sumExclPy  = [...aptRows, ...offiRows, ...storeRows].reduce((s, r) => s + pnI(r.excl_m2) * 0.3025 * pnI(r.units), 0);
-  const sumSupPy   = aptRows.reduce((s, r) => s + calcRowI(r, 'apt').sup_py * pnI(r.units), 0)
-                   + [...offiRows, ...storeRows].reduce((s, r) => s + calcRowI(r, 'offi').cont_py * pnI(r.units), 0);
-  const sumContPy  = totalContPy;
+  const sumExclPy = [...aptRows, ...publicRows, ...offiRows, ...storeRows, ...pubfacRows]
+    .reduce((s, r) => s + pnI(r.excl_m2) * 0.3025 * pnI(r.units), 0);
+  const sumSupPy  = [...aptRows, ...publicRows].reduce((s, r) => s + calcRowI(r, 'apt').sup_py * pnI(r.units), 0)
+                  + [...offiRows, ...storeRows, ...pubfacRows].reduce((s, r) => s + calcRowI(r, 'offi').cont_py * pnI(r.units), 0);
+  const sumContPy = totalContPy;
 
   // 스타일
   const thBg = '#2c3e50', secBg = '#34495e', subBg = '#eaf1f8', totalBg = '#1a252f';
