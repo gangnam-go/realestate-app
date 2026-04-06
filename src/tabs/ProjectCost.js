@@ -7685,19 +7685,59 @@ function calcMonthlyPayments({
 
   // ── 1. 토지관련비용 ──
   const calcLand_ = () => {
-    const pyPrice  = parseAmt(landData?.landPyPrice);
-    const totalM2  = (archData?.plots||[]).reduce((s,p)=>s+(parseFloat(String(p.areaM2||'').replace(/,/g,''))||0),0);
-    const calcL    = Math.round(pyPrice * totalM2 * 0.3025);
-    const landAmt  = parseAmt(landData?.landOverride) > 0 ? parseAmt(landData.landOverride) : calcL;
+    const plots   = archData?.plots || [];
+    const totalM2 = plots.reduce((s,p)=>s+(parseFloat(String(p.areaM2||'').replace(/,/g,''))||0),0);
+    const totalPy = totalM2 * 0.3025;
+
+    // ── 그룹별 토지매입비 합산 ──
+    const groups = ['A','B','C','D'];
+    const landGroupData = landData?.landGroups || {};
+    const activeGroups = groups.filter(g => {
+      const gM2 = plots.filter(p=>(p.group||'A')===g)
+        .reduce((s,p)=>s+(parseFloat(String(p.areaM2||'').replace(/,/g,''))||0),0);
+      return gM2 > 0;
+    });
+    const groupLandAmts = {};
+    activeGroups.forEach(g => {
+      const gM2 = plots.filter(p=>(p.group||'A')===g)
+        .reduce((s,p)=>s+(parseFloat(String(p.areaM2||'').replace(/,/g,''))||0),0);
+      const gPy = gM2 * 0.3025;
+      const gd  = landGroupData[g] || {};
+      const gPyPrice  = parseAmt(gd.pyPrice);
+      const gCalcAmt  = Math.round(gPyPrice * gPy);
+      const gOverride = parseAmt(gd.override);
+      groupLandAmts[g] = gOverride > 0 ? gOverride : gCalcAmt;
+    });
+
+    let landAmt;
+    if (activeGroups.length > 0) {
+      landAmt = activeGroups.reduce((s,g)=>s+groupLandAmts[g], 0);
+    } else {
+      const pyPrice = parseAmt(landData?.landPyPrice);
+      const calcL   = Math.round(pyPrice * totalPy);
+      landAmt = parseAmt(landData?.landOverride) > 0 ? parseAmt(landData.landOverride) : calcL;
+    }
+
     const acqAmt   = landData?.acqTaxOverride ? parseAmt(landData.acqTaxOverride)
       : Math.round(landAmt * (parseFloat(landData?.acqTaxRate??'4.6')||0) / 100);
-    const bondPublic = (archData?.plots||[]).reduce((s,p)=>s+(parseFloat(String(p.totalPrice||'').replace(/,/g,''))||0),0);
+    const bondPublic = plots.reduce((s,p)=>s+(parseFloat(String(p.totalPrice||'').replace(/,/g,''))||0),0);
     const bondAmt  = landData?.bondOverride ? parseAmt(landData.bondOverride)
       : Math.round(bondPublic * (parseFloat(landData?.bondBuyRate??'50')||0)/1000 * (parseFloat(landData?.bondDiscRate??'13.5')||0)/100/1000);
     const legalAmt = parseAmt(landData?.legalDirect) > 0 ? parseAmt(landData.legalDirect)
       : Math.round(landAmt * (parseFloat(landData?.legalRate??'0.3')||0)/100);
-    const agentAmt = parseAmt(landData?.agentDirect) > 0 ? parseAmt(landData.agentDirect)
-      : Math.round(landAmt * (parseFloat(landData?.agentRate??'0.5')||0)/100);
+
+    // 중개수수료 — 그룹별 요율 적용 후 합산
+    const agentGroupRates = landData?.agentGroupRates || {};
+    const agentMode_ = landData?.agentMode || 'rate';
+    let agentAmt = 0;
+    if (agentMode_ === 'rate' && activeGroups.length > 0) {
+      activeGroups.forEach(g => {
+        const rate = parseFloat(agentGroupRates[g] ?? '0.5') || 0;
+        agentAmt += Math.round(groupLandAmts[g] * rate / 100);
+      });
+    } else {
+      agentAmt = parseAmt(landData?.agentDirect);
+    }
 
     const depositPct = parseFloat(d.deposit_pct ?? '10') || 10;
     const midPct     = parseFloat(d.mid_pct     ?? '0')  || 0;
