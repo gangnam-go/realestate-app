@@ -11700,28 +11700,77 @@ function ProjectCost({ data, onChange, onSave, saving, archData, incomeData, sal
     const plots = archData?.plots || [];
     const totalM2 = plots.reduce((s, p) => s + (parseFloat(parseNumber(p.areaM2)) || 0), 0);
     const totalPy = totalM2 * 0.3025;
-    const pyPrice = parseFloat(parseNumber(landData.landPyPrice)) || 0;
-    const calcL   = Math.round(pyPrice * totalPy);
-    const ov      = parseFloat(parseNumber(landData.landOverride));
-    const landAmt = ov > 0 ? ov : calcL;
-    const acqRate  = parseFloat(landData.acqTaxRate ?? '4.6') || 0;
-    const acqAmt   = landData.acqTaxOverride ? parseFloat(parseNumber(landData.acqTaxOverride)) || 0 : Math.round(landAmt * acqRate / 100);
-    // 국민주택채권할인 — totalPrice는 원 단위
+
+    // ── 그룹별 토지매입비 합산 (LandCostSection과 동일 로직) ──
+    const groups = ['A', 'B', 'C', 'D'];
+    const landGroupData = landData.landGroups || {};
+    const activeGroups = groups.filter(g => {
+      const gM2 = plots.filter(p => (p.group || 'A') === g)
+        .reduce((s, p) => s + (parseFloat(parseNumber(p.areaM2)) || 0), 0);
+      return gM2 > 0;
+    });
+
+    const groupLandAmts = {};
+    activeGroups.forEach(g => {
+      const gM2 = plots.filter(p => (p.group || 'A') === g)
+        .reduce((s, p) => s + (parseFloat(parseNumber(p.areaM2)) || 0), 0);
+      const gPy = gM2 * 0.3025;
+      const gd  = landGroupData[g] || {};
+      const gPyPrice  = parseFloat(parseNumber(gd.pyPrice)) || 0;
+      const gCalcAmt  = Math.round(gPyPrice * gPy);
+      const gOverride = parseFloat(parseNumber(gd.override));
+      groupLandAmts[g] = gOverride > 0 ? gOverride : gCalcAmt;
+    });
+
+    let landAmt;
+    if (activeGroups.length > 0) {
+      landAmt = activeGroups.reduce((s, g) => s + groupLandAmts[g], 0);
+    } else {
+      // 그룹 없을 때 기존 단일 로직 fallback
+      const pyPrice = parseFloat(parseNumber(landData.landPyPrice)) || 0;
+      const calcL   = Math.round(pyPrice * totalPy);
+      const ov      = parseFloat(parseNumber(landData.landOverride));
+      landAmt = ov > 0 ? ov : calcL;
+    }
+
+    // 취득세 — 전체 토지매입비 기준
+    const acqRate = parseFloat(landData.acqTaxRate ?? '4.6') || 0;
+    const acqAmt  = landData.acqTaxOverride
+      ? parseFloat(parseNumber(landData.acqTaxOverride)) || 0
+      : Math.round(landAmt * acqRate / 100);
+
+    // 국민주택채권할인 — 전체 공시지가 기준
     const bondPublic = plots.reduce((s, p) => s + (parseFloat(parseNumber(p.totalPrice)) || 0), 0);
     const bondBuyR   = parseFloat(landData.bondBuyRate  ?? '50')   || 0;
     const bondDiscR  = parseFloat(landData.bondDiscRate ?? '13.5') || 0;
     const bondAmt    = landData.bondOverride
       ? parseFloat(parseNumber(landData.bondOverride)) || 0
       : Math.round(bondPublic * bondBuyR / 1000 * bondDiscR / 100 / 1000);
+
+    // 법무사/등기비 — 전체 토지매입비 기준
     const legalRate = parseFloat(landData.legalRate ?? '0.3') || 0;
-    const legalAmt  = (landData.legalMode || 'rate') === 'rate' ? Math.round(landAmt * legalRate / 100) : parseFloat(parseNumber(landData.legalDirect)) || 0;
-    const agentRate = parseFloat(landData.agentRate ?? '0.5') || 0;
-    const agentAmt  = (landData.agentMode || 'rate') === 'rate' ? Math.round(landAmt * agentRate / 100) : parseFloat(parseNumber(landData.agentDirect)) || 0;
-    const etcItems  = landData.etcItems || [];
+    const legalAmt  = (landData.legalMode || 'rate') === 'rate'
+      ? Math.round(landAmt * legalRate / 100)
+      : parseFloat(parseNumber(landData.legalDirect)) || 0;
+
+    // 중개수수료 — 그룹별 요율 적용 후 합산
+    const agentGroupRates = landData.agentGroupRates || {};
+    const agentMode = landData.agentMode || 'rate';
+    let agentAmt = 0;
+    if (agentMode === 'rate' && activeGroups.length > 0) {
+      activeGroups.forEach(g => {
+        const rate = parseFloat(agentGroupRates[g] ?? '0.5') || 0;
+        agentAmt += Math.round(groupLandAmts[g] * rate / 100);
+      });
+    } else {
+      agentAmt = parseFloat(parseNumber(landData.agentDirect)) || 0;
+    }
+
+    const etcItems = landData.etcItems || [];
     const rows = [
-      { funding: landData.land_funding,  amt: landAmt },
-      { funding: landData.acq_funding,   amt: acqAmt },
-      { funding: landData.bond_funding,  amt: bondAmt },
+      { funding: landData.land_funding,  amt: landAmt  },
+      { funding: landData.acq_funding,   amt: acqAmt   },
+      { funding: landData.bond_funding,  amt: bondAmt  },
       { funding: landData.legal_funding, amt: legalAmt },
       { funding: landData.agent_funding, amt: agentAmt },
       ...etcItems.map(it => ({ funding: it.funding, amt: parseFloat(parseNumber(it.amt)) || 0 })),
