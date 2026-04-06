@@ -121,7 +121,9 @@ function ProjectList({ onSelect }) {
             <h3 style={{ margin: '0 0 8px', color: '#2c3e50' }}>📋 버전 복사</h3>
             <p style={{ fontSize: '13px', color: '#888', margin: '0 0 20px' }}>원본 데이터를 그대로 복사하여 새 버전을 만듭니다</p>
 
-            <div style={{ backgroundColor: '#f8f9fa', borderRadius: '8px', padding: '12px 16px', marginBottom: '20px' }}>
+            <span style={{ fontWeight: 'bold', fontSize: '15px', color: '#2c3e50' }}>
+              {p.region ? `${p.region} ${p.name}` : p.name}
+            </span>
               <div style={{ fontSize: '11px', color: '#aaa', marginBottom: '2px' }}>원본</div>
               <div style={{ fontWeight: 'bold', color: '#2c3e50' }}>{copyTarget.name}</div>
               <div style={{ fontSize: '12px', color: '#888' }}>{copyTarget.region}</div>
