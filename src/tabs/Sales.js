@@ -44,7 +44,7 @@ const calcMidMonths = (salesStartMonth, constructPeriod, prepPeriod, midCount, m
   const con = parseInt(constructPeriod) || 31;
   const pre = parseInt(prepPeriod)      || 0;
   if (n === 0) return [];
-  const junMonth   = pre + con + 1;
+  const junMonth   = pre + con;
   const endMonth   = junMonth - x;
   const startMonth = parseInt(salesStartMonth) || (pre + 1);
   const span       = endMonth - startMonth;
@@ -56,7 +56,7 @@ const calcBalMonths = (prepPeriod, constructPeriod, balCount) => {
   const pre = parseInt(prepPeriod)      || 0;
   const con = parseInt(constructPeriod) || 31;
   const m   = parseInt(balCount)        || 3;
-  const junMonth = pre + con + 1;
+  const junMonth = pre + con;
   return Array.from({ length: m }, (_, i) => junMonth + i);
 };
 
@@ -68,7 +68,7 @@ const calcRates = (config, totalMonths, salesStartMonth, constructPeriod, prepPe
   const remain = 1 - m1 - m2 - m3;
   const con = parseInt(constructPeriod) || 31;
   const pre = parseInt(prepPeriod)      || 0;
-  const junMonth = pre + con + 1;
+  const junMonth = pre + con;
 
   if (isStore) {
     const startIdx  = junMonth - (parseInt(config.storeStartBefore) || 9) - 1;
