@@ -121,10 +121,9 @@ function ProjectList({ onSelect }) {
             <h3 style={{ margin: '0 0 8px', color: '#2c3e50' }}>📋 버전 복사</h3>
             <p style={{ fontSize: '13px', color: '#888', margin: '0 0 20px' }}>원본 데이터를 그대로 복사하여 새 버전을 만듭니다</p>
 
-            <span style={{ fontWeight: 'bold', fontSize: '15px', color: '#2c3e50' }}>{p.region ? `${p.region} ${p.name}` : p.name}</span>
+            <div style={{ backgroundColor: '#f8f9fa', borderRadius: '8px', padding: '12px 16px', marginBottom: '20px' }}>
               <div style={{ fontSize: '11px', color: '#aaa', marginBottom: '2px' }}>원본</div>
-              <div style={{ fontWeight: 'bold', color: '#2c3e50' }}>{copyTarget.name}</div>
-              <div style={{ fontSize: '12px', color: '#888' }}>{copyTarget.region}</div>
+              <div style={{ fontWeight: 'bold', color: '#2c3e50' }}>{copyTarget.region} {copyTarget.name}</div>
             </div>
 
             <label style={{ fontSize: '13px', fontWeight: 'bold', color: '#555', display: 'block', marginBottom: '6px' }}>
@@ -141,7 +140,7 @@ function ProjectList({ onSelect }) {
             />
             {copySubmitTo.trim() && (
               <div style={{ fontSize: '12px', color: '#27ae60', marginTop: '8px' }}>
-                → 생성될 버전: <strong>{copyTarget.name} - {copySubmitTo.trim()}</strong>
+                → 생성될 버전: <strong>{copyTarget.region} {copyTarget.name} - {copySubmitTo.trim()}</strong>
               </div>
             )}
 
@@ -169,7 +168,7 @@ function ProjectList({ onSelect }) {
             <div key={p.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', backgroundColor: 'white', border: '1px solid #ddd', borderRadius: '8px', padding: '16px 20px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span style={{ fontWeight: 'bold', fontSize: '15px', color: '#2c3e50' }}>{p.name}</span>
+                  <span style={{ fontWeight: 'bold', fontSize: '15px', color: '#2c3e50' }}>{p.region ? `${p.region} ${p.name}` : p.name}</span>
                   <span style={{
                     fontSize: '11px', fontWeight: 'bold', padding: '2px 8px', borderRadius: '10px',
                     backgroundColor: !p.submitTo ? '#eafaf1' : '#fdedec',
