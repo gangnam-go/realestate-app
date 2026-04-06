@@ -991,46 +991,62 @@ function ArtInstallModal({ onClose, onApply, archData, incomeData, settingsData,
   const stdCost      = parseFloat(String(selectedStd?.cost || '2392000').replace(/,/g, '')) || 0;
 
   // ── artRateItems (기준정보에서 가져오기) ──
-  const artRateItems   = settingsData?.artRates || [{ region: '부산광역시', ordinance: '부산광역시 조례 제5조', residRate: '0.1', nonResidRate: '0.5' }];
+  const artRateItems   = settingsData?.artRates || [
+    { region: '부산광역시', ordinance: '부산광역시 건축물 미술작품 설치 및 관리에 관한 조례 제5조', residRate: '0.1', nonResidRate1: '0.5', nonResidRate2: '0.5' },
+    { region: '서울특별시', ordinance: '서울특별시 공공미술의 설치 및 관리에 관한 조례 제25조 + 시행령 별표2 나목', residRate: '0.1', nonResidRate1: '0.7', nonResidRate2: '0.5' },
+  ];
   const selectedArtRate = artRateItems.find(r => r.region === (d.region || artRateItems[0]?.region)) || artRateItems[0];
 
   // ── STEP 3 요율 (선택된 지역 기준) ──
-  const residRate    = parseFloat(d.residRate    ?? selectedArtRate?.residRate    ?? '0.1') || 0;
-  const nonResidRate = parseFloat(d.nonResidRate ?? selectedArtRate?.nonResidRate ?? '0.5') || 0;
+  const residRate     = parseFloat(d.residRate     ?? selectedArtRate?.residRate     ?? '0.1') || 0;
+  const nonResidRate1 = parseFloat(d.nonResidRate1 ?? selectedArtRate?.nonResidRate1 ?? '0.7') || 0;
+  const nonResidRate2 = parseFloat(d.nonResidRate2 ?? selectedArtRate?.nonResidRate2 ?? '0.5') || 0;
 
   // ── STEP 2: 면적 ──
   const aboveM2 = parseFloat(String(archData?.floorAboveM2 || '').replace(/,/g, '')) || 0;
 
-  // 수입탭에서 주거면적 = apt 공급㎡×세대 + offi 공급㎡×세대
-  const aptRows  = incomeData?.aptRows  || [];
-  const offiRows = incomeData?.offiRows || [];
+  // 주거면적 = 공동주택 공급㎡×세대 + 오피스텔 공급㎡×세대
+  const aptRows    = incomeData?.aptRows    || [];
+  const offiRows   = incomeData?.offiRows   || [];
+  const publicRows = incomeData?.publicRows || [];  // 공공주택 — 면제
+  const pubfacRows = incomeData?.pubfacRows || [];  // 공공시설 — 면제
 
-  const aptResidM2 = aptRows.reduce((s, r) => {
-    const excl = parseFloat(String(r.excl_m2||'').replace(/,/g,''))||0;
-    const wall = parseFloat(String(r.wall_m2||'').replace(/,/g,''))||0;
-    const core = parseFloat(String(r.core_m2||'').replace(/,/g,''))||0;
+  const calcSupM2 = (rows) => rows.reduce((s, r) => {
+    const excl  = parseFloat(String(r.excl_m2||'').replace(/,/g,''))||0;
+    const wall  = parseFloat(String(r.wall_m2||'').replace(/,/g,''))||0;
+    const core  = parseFloat(String(r.core_m2||'').replace(/,/g,''))||0;
     const units = parseFloat(String(r.units||'').replace(/,/g,''))||0;
     return s + (excl + wall + core) * units;
   }, 0);
 
-  const offiResidM2 = offiRows.reduce((s, r) => {
-    const excl = parseFloat(String(r.excl_m2||'').replace(/,/g,''))||0;
-    const wall = parseFloat(String(r.wall_m2||'').replace(/,/g,''))||0;
-    const core = parseFloat(String(r.core_m2||'').replace(/,/g,''))||0;
-    const units = parseFloat(String(r.units||'').replace(/,/g,''))||0;
-    return s + (excl + wall + core) * units;
-  }, 0);
+  const aptResidM2  = calcSupM2(aptRows);
+  const offiResidM2 = calcSupM2(offiRows);
+  const publicM2    = calcSupM2(publicRows);  // 공공주택 공급면적 합계
+  const pubfacM2    = calcSupM2(pubfacRows);  // 공공시설 공급면적 합계
+  const residM2     = aptResidM2 + offiResidM2;
+  // 과세대상 비주거 = 지상연면적 - 주거 - 공공주택 - 공공시설
+  const taxNonResidM2 = Math.max(0, aboveM2 - residM2 - publicM2 - pubfacM2);
+  const residRatio    = aboveM2 > 0 ? (residM2 / aboveM2 * 100).toFixed(1) : '0.0';
 
-  const residM2    = aptResidM2 + offiResidM2;
-  const nonResidM2 = Math.max(0, aboveM2 - residM2);
-  const residRatio = aboveM2 > 0 ? (residM2 / aboveM2 * 100).toFixed(1) : '0.0';
-
-
-
-  // ── STEP 4: 계산결과 ──
-  const residAmt    = Math.round(residM2    * stdCost * residRate    / 100 / 1000);
-  const nonResidAmt = Math.round(nonResidM2 * stdCost * nonResidRate / 100 / 1000);
-  const totalAmt    = residAmt + nonResidAmt;
+  // ── STEP 4: 계산결과 (시행령 나목 누진 구조) ──
+  const residAmt = Math.round(residM2 * stdCost * residRate / 100 / 1000);
+  const THRESHOLD1 = 10000; // 1만㎡ 미만 면제
+  const THRESHOLD2 = 20000; // 2만㎡ 초과분 누진
+  let nonResidAmt = 0;
+  let nonResidCalcNote = '';
+  if (taxNonResidM2 < THRESHOLD1) {
+    nonResidAmt = 0;
+    nonResidCalcNote = `${formatNumber(taxNonResidM2.toFixed(2))}㎡ < 1만㎡ → 면제`;
+  } else if (taxNonResidM2 <= THRESHOLD2) {
+    nonResidAmt = Math.round(taxNonResidM2 * stdCost * nonResidRate1 / 100 / 1000);
+    nonResidCalcNote = `${formatNumber(taxNonResidM2.toFixed(2))}㎡ × ${formatNumber(stdCost)}원 × ${nonResidRate1}% ÷ 1,000`;
+  } else {
+    const amt1 = Math.round(THRESHOLD2 * stdCost * nonResidRate1 / 100 / 1000);
+    const amt2 = Math.round((taxNonResidM2 - THRESHOLD2) * stdCost * nonResidRate2 / 100 / 1000);
+    nonResidAmt = amt1 + amt2;
+    nonResidCalcNote = `(20,000㎡ × ${nonResidRate1}%) + (${formatNumber((taxNonResidM2-THRESHOLD2).toFixed(2))}㎡ × ${nonResidRate2}%)`;
+  }
+  const totalAmt = residAmt + nonResidAmt;
 
   // 스타일
   const boxStyle = {
@@ -1142,10 +1158,10 @@ function ArtInstallModal({ onClose, onApply, archData, incomeData, settingsData,
           {/* 지상연면적 */}
           {calcRow('지상연면적 (건축개요 자동연동)', `${formatNumber(aboveM2.toFixed(2))} ㎡`)}
 
-          {/* 주거면적 계산 */}
+          {/* 주거면적 */}
           <div style={{ backgroundColor: '#e8f5e9', borderRadius: '6px', padding: '10px 12px', margin: '8px 0' }}>
             <div style={{ fontSize: '12px', fontWeight: 'bold', color: '#2e7d32', marginBottom: '6px' }}>
-              주거면적 = apt 공급㎡×세대 + offi 공급㎡×세대
+              주거면적 = 공동주택 공급㎡×세대 + 오피스텔 공급㎡×세대
             </div>
             {aptRows.length > 0 && (
               <div style={{ fontSize: '11px', color: '#555', marginBottom: '4px' }}>
@@ -1184,11 +1200,29 @@ function ArtInstallModal({ onClose, onApply, archData, incomeData, settingsData,
             </div>
           </div>
 
+          {/* 공공주택/공공시설 차감 */}
+          {(publicM2 > 0 || pubfacM2 > 0) && (
+            <div style={{ backgroundColor: '#e8f0fe', borderRadius: '6px', padding: '10px 12px', margin: '8px 0', border: '1px solid #c5cae9' }}>
+              <div style={{ fontSize: '12px', fontWeight: 'bold', color: '#1a237e', marginBottom: '6px' }}>
+                ✂ 면제 면적 (공공기여 — 미술작품 부과 제외)
+              </div>
+              {publicM2 > 0 && calcRow(`공공주택 (${publicRows.length}개 타입)`, `${formatNumber(publicM2.toFixed(2))} ㎡`)}
+              {pubfacM2 > 0 && calcRow(`공공시설 (${pubfacRows.length}개 타입)`, `${formatNumber(pubfacM2.toFixed(2))} ㎡`)}
+              {calcRow('면제 합계', `${formatNumber((publicM2+pubfacM2).toFixed(2))} ㎡`, true)}
+            </div>
+          )}
+
+          {/* 과세대상 비주거면적 */}
           <div style={{ backgroundColor: '#fce4ec', borderRadius: '6px', padding: '10px 12px', margin: '8px 0' }}>
             <div style={{ fontSize: '12px', fontWeight: 'bold', color: '#c62828', marginBottom: '6px' }}>
-              비주거면적 = 지상연면적 - 주거면적
+              과세대상 비주거면적 = 지상연면적 - 주거 - 공공주택 - 공공시설
             </div>
-            {formula(`${formatNumber(aboveM2.toFixed(2))} - ${formatNumber(residM2.toFixed(2))} = ${formatNumber(nonResidM2.toFixed(2))} ㎡`)}
+            {formula(`${formatNumber(aboveM2.toFixed(2))} - ${formatNumber(residM2.toFixed(2))} - ${formatNumber(publicM2.toFixed(2))} - ${formatNumber(pubfacM2.toFixed(2))} = ${formatNumber(taxNonResidM2.toFixed(2))} ㎡`)}
+            {taxNonResidM2 < 10000 && (
+              <div style={{ marginTop: '6px', padding: '4px 8px', backgroundColor: '#fff3e0', borderRadius: '4px', fontSize: '11px', color: '#e65100', fontWeight: 'bold' }}>
+                ⚠ 1만㎡ 미만 → 비주거 미술작품설치비 면제
+              </div>
+            )}
           </div>
         </div>
 
@@ -1207,8 +1241,8 @@ function ArtInstallModal({ onClose, onApply, archData, incomeData, settingsData,
                 onChange={e => {
                   const region = e.target.value;
                   const found = artRateItems.find(r => r.region === region);
-                  if (found) onChange({ ...d, region, residRate: found.residRate, nonResidRate: found.nonResidRate });
-                  else onChange({ ...d, region, residRate: '', nonResidRate: '' });
+                  if (found) onChange({ ...d, region, residRate: found.residRate, nonResidRate1: found.nonResidRate1, nonResidRate2: found.nonResidRate2 });
+                  else onChange({ ...d, region, residRate: '', nonResidRate1: '', nonResidRate2: '' });
                 }}
                 style={{ padding: '6px 10px', border: '1px solid #6a1b9a', borderRadius: '4px', fontSize: '13px', color: '#6a1b9a', fontWeight: 'bold', cursor: 'pointer' }}
               >
@@ -1240,32 +1274,51 @@ function ArtInstallModal({ onClose, onApply, archData, incomeData, settingsData,
           </div>
 
           {/* 요율 표시/입력 */}
-          <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap', backgroundColor: '#f8f0fc', padding: '12px 16px', borderRadius: '6px', border: '1px solid #e1bee7' }}>
-            {[
-              { label: '주거요율', key: 'residRate', defaultVal: selectedArtRate?.residRate || '0.1' },
-              { label: '비주거요율', key: 'nonResidRate', defaultVal: selectedArtRate?.nonResidRate || '0.5' },
-            ].map(({ label, key, defaultVal }) => (
-              <div key={key}>
-                <label style={{ fontSize: '12px', fontWeight: 'bold', color: '#6a1b9a', display: 'block', marginBottom: '4px' }}>{label}</label>
+          <div style={{ backgroundColor: '#f8f0fc', padding: '12px 16px', borderRadius: '6px', border: '1px solid #e1bee7' }}>
+            <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap', marginBottom: '8px' }}>
+              {/* 주거요율 */}
+              <div>
+                <label style={{ fontSize: '12px', fontWeight: 'bold', color: '#2e7d32', display: 'block', marginBottom: '4px' }}>주거요율</label>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <input
-                    value={d[key] ?? defaultVal}
-                    onChange={e => update(key, e.target.value)}
+                  <input value={d.residRate ?? selectedArtRate?.residRate ?? '0.1'}
+                    onChange={e => update('residRate', e.target.value)}
                     readOnly={(d.region || '') !== '직접입력'}
-                    style={{
-                      width: '70px', padding: '5px 8px',
-                      border: '1px solid #6a1b9a', borderRadius: '4px',
-                      fontSize: '13px', textAlign: 'right',
-                      backgroundColor: (d.region || '') !== '직접입력' ? '#ede7f6' : 'white',
-                      color: '#6a1b9a', fontWeight: 'bold',
-                    }}
-                  />
+                    style={{ width: '70px', padding: '5px 8px', border: '1px solid #2e7d32', borderRadius: '4px', fontSize: '13px', textAlign: 'right',
+                      backgroundColor: (d.region||'')!=='직접입력'?'#e8f5e9':'white', color: '#2e7d32', fontWeight: 'bold' }} />
                   <span style={{ fontSize: '12px', color: '#888' }}>%</span>
                 </div>
               </div>
-            ))}
+              {/* 비주거 1구간 */}
+              <div>
+                <label style={{ fontSize: '12px', fontWeight: 'bold', color: '#6a1b9a', display: 'block', marginBottom: '4px' }}>
+                  비주거 1구간 (1만~2만㎡)
+                </label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <input value={d.nonResidRate1 ?? selectedArtRate?.nonResidRate1 ?? '0.7'}
+                    onChange={e => update('nonResidRate1', e.target.value)}
+                    readOnly={(d.region || '') !== '직접입력'}
+                    style={{ width: '70px', padding: '5px 8px', border: '1px solid #6a1b9a', borderRadius: '4px', fontSize: '13px', textAlign: 'right',
+                      backgroundColor: (d.region||'')!=='직접입력'?'#ede7f6':'white', color: '#6a1b9a', fontWeight: 'bold' }} />
+                  <span style={{ fontSize: '12px', color: '#888' }}>%</span>
+                </div>
+              </div>
+              {/* 비주거 2구간 */}
+              <div>
+                <label style={{ fontSize: '12px', fontWeight: 'bold', color: '#c62828', display: 'block', marginBottom: '4px' }}>
+                  비주거 2구간 (2만㎡ 초과분)
+                </label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <input value={d.nonResidRate2 ?? selectedArtRate?.nonResidRate2 ?? '0.5'}
+                    onChange={e => update('nonResidRate2', e.target.value)}
+                    readOnly={(d.region || '') !== '직접입력'}
+                    style={{ width: '70px', padding: '5px 8px', border: '1px solid #c62828', borderRadius: '4px', fontSize: '13px', textAlign: 'right',
+                      backgroundColor: (d.region||'')!=='직접입력'?'#fce4ec':'white', color: '#c62828', fontWeight: 'bold' }} />
+                  <span style={{ fontSize: '12px', color: '#888' }}>%</span>
+                </div>
+              </div>
+            </div>
             {(d.region || '') !== '직접입력' && (
-              <div style={{ fontSize: '11px', color: '#888', alignSelf: 'flex-end', paddingBottom: '4px' }}>
+              <div style={{ fontSize: '11px', color: '#888' }}>
                 ※ 기준정보에서 관리 (수정하려면 "직접입력" 선택)
               </div>
             )}
@@ -1282,8 +1335,24 @@ function ArtInstallModal({ onClose, onApply, archData, incomeData, settingsData,
           </div>
 
           <div style={{ marginBottom: '12px' }}>
-            <div style={{ fontSize: '12px', fontWeight: 'bold', color: '#c62828', marginBottom: '4px' }}>비주거분</div>
-            {formula(`${formatNumber(nonResidM2.toFixed(2))}㎡ × ${formatNumber(stdCost)}원 × ${nonResidRate}% ÷ 1,000 = ${formatNumber(nonResidAmt)} 천원`)}
+            <div style={{ fontSize: '12px', fontWeight: 'bold', color: '#c62828', marginBottom: '4px' }}>
+              비주거분 (과세대상: {formatNumber(taxNonResidM2.toFixed(2))}㎡)
+            </div>
+            {taxNonResidM2 < 10000 ? (
+              <div style={{ padding: '8px 12px', backgroundColor: '#fff3e0', borderRadius: '4px', fontSize: '12px', color: '#e65100', fontWeight: 'bold' }}>
+                ⚠ 1만㎡ 미만 → 면제 (0 천원)
+              </div>
+            ) : taxNonResidM2 <= 20000 ? (
+              formula(`${formatNumber(taxNonResidM2.toFixed(2))}㎡ × ${formatNumber(stdCost)}원 × ${nonResidRate1}% ÷ 1,000 = ${formatNumber(nonResidAmt)} 천원`)
+            ) : (
+              <div>
+                {formula(`2만㎡ × ${formatNumber(stdCost)}원 × ${nonResidRate1}% ÷ 1,000 = ${formatNumber(Math.round(20000*stdCost*nonResidRate1/100/1000))} 천원`)}
+                {formula(`${formatNumber((taxNonResidM2-20000).toFixed(2))}㎡(초과분) × ${formatNumber(stdCost)}원 × ${nonResidRate2}% ÷ 1,000 = ${formatNumber(Math.round((taxNonResidM2-20000)*stdCost*nonResidRate2/100/1000))} 천원`)}
+                <div style={{ textAlign: 'right', fontSize: '12px', color: '#c62828', fontWeight: 'bold', marginTop: '4px' }}>
+                  합계: {formatNumber(nonResidAmt)} 천원
+                </div>
+              </div>
+            )}
           </div>
 
           <div style={{
@@ -2443,8 +2512,18 @@ export function SettingsModal({ onClose, constructPeriod }) {
         else setStdCosts([{ year: '2026', cost: '2392000', note: '국토부 고시 (과밀부담금용)' }]);
 
         const artSnap = await getDoc(doc(db, 'settings', 'artRates'));
-        if (artSnap.exists()) setArtRates(artSnap.data().items || []);
-        else setArtRates([{ region: '부산광역시', ordinance: '부산광역시 건축물 미술작품 설치 및 관리에 관한 조례 제5조', residRate: '0.1', nonResidRate: '0.5' }]);
+        if (artSnap.exists()) {
+          // 구버전 nonResidRate → nonResidRate1/nonResidRate2 마이그레이션
+          const items = (artSnap.data().items || []).map(r => ({
+            ...r,
+            nonResidRate1: r.nonResidRate1 || r.nonResidRate || '0.7',
+            nonResidRate2: r.nonResidRate2 || r.nonResidRate || '0.5',
+          }));
+          setArtRates(items);
+        } else setArtRates([
+          { region: '부산광역시', ordinance: '부산광역시 건축물 미술작품 설치 및 관리에 관한 조례 제5조', residRate: '0.1', nonResidRate1: '0.5', nonResidRate2: '0.5' },
+          { region: '서울특별시', ordinance: '서울특별시 공공미술의 설치 및 관리에 관한 조례 제25조 + 시행령 별표2 나목', residRate: '0.1', nonResidRate1: '0.7', nonResidRate2: '0.5' },
+        ]);
 
         const moefSnap = await getDoc(doc(db, 'settings', 'moefStdCost'));
         if (moefSnap.exists()) setMoefCosts(moefSnap.data().items || []);
@@ -2630,19 +2709,26 @@ export function SettingsModal({ onClose, constructPeriod }) {
                     <div style={{ fontWeight: 'bold', fontSize: '14px' }}>🎨 미술작품설치비 요율 (지역별 조례)</div>
                     <div style={{ fontSize: '11px', color: '#888', marginTop: '3px' }}>※ 문화예술진흥법 시행령 제12조 — 지자체 조례로 별도 정함</div>
                   </div>
-                  <button onClick={() => setArtRates([...artRates, { region: '', ordinance: '', residRate: '', nonResidRate: '' }])}
+                  <button onClick={() => setArtRates([...artRates, { region: '', ordinance: '', residRate: '0.1', nonResidRate1: '0.7', nonResidRate2: '0.5' }])}
                     style={{ padding: '6px 14px', backgroundColor: '#7b1fa2', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '12px' }}>
                     + 지역 추가
                   </button>
                 </div>
+                {/* 나목 구조 안내 */}
+                <div style={{ fontSize: '11px', color: '#555', marginBottom: '12px', padding: '8px 12px', backgroundColor: '#fff8e1', borderRadius: '6px', border: '1px solid #ffe082' }}>
+                  📋 <strong>시행령 별표2 나목 (서울·부산 등 자치구 있는 시)</strong><br/>
+                  1만㎡ 미만: 면제 | 1만~2만㎡: 전체 × 1구간 요율 | 2만㎡ 초과: (2만 × 1구간) + (초과분 × 2구간) 누진<br/>
+                  <span style={{ color: '#888' }}>부산: 조례로 양 구간 0.5% 단일 | 서울: 조례 없음 → 시행령 적용 (1구간 0.7%, 2구간 0.5%)</span>
+                </div>
                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                   <thead>
                     <tr>
-                      <th style={{ ...thStyle, width: '110px' }}>지역명</th>
+                      <th style={{ ...thStyle, width: '100px' }}>지역명</th>
                       <th style={thStyle}>조례명</th>
-                      <th style={{ ...thStyle, width: '80px' }}>주거(%)</th>
-                      <th style={{ ...thStyle, width: '80px' }}>비주거(%)</th>
-                      <th style={{ ...thStyle, width: '60px' }}></th>
+                      <th style={{ ...thStyle, width: '70px' }}>주거(%)</th>
+                      <th style={{ ...thStyle, width: '110px' }}>비주거 1구간(%)<br/><span style={{ fontSize:'10px', fontWeight:'normal', color:'#888' }}>1만~2만㎡</span></th>
+                      <th style={{ ...thStyle, width: '110px' }}>비주거 2구간(%)<br/><span style={{ fontSize:'10px', fontWeight:'normal', color:'#888' }}>2만㎡ 초과분</span></th>
+                      <th style={{ ...thStyle, width: '50px' }}></th>
                     </tr>
                   </thead>
                   <tbody>
@@ -2650,7 +2736,7 @@ export function SettingsModal({ onClose, constructPeriod }) {
                       <tr key={i} style={{ backgroundColor: i % 2 === 0 ? 'white' : '#fafafa' }}>
                         <td style={tdStyle}>
                           <input value={item.region} onChange={e => setArtRates(artRates.map((r, idx) => idx === i ? { ...r, region: e.target.value } : r))}
-                            placeholder="부산광역시" style={{ width: '90px', padding: '4px 8px', border: '1px solid #ddd', borderRadius: '3px', fontSize: '12px' }} />
+                            placeholder="부산광역시" style={{ width: '85px', padding: '4px 8px', border: '1px solid #ddd', borderRadius: '3px', fontSize: '12px' }} />
                         </td>
                         <td style={tdStyle}>
                           <input value={item.ordinance} onChange={e => setArtRates(artRates.map((r, idx) => idx === i ? { ...r, ordinance: e.target.value } : r))}
@@ -2658,11 +2744,15 @@ export function SettingsModal({ onClose, constructPeriod }) {
                         </td>
                         <td style={tdStyle}>
                           <input value={item.residRate} onChange={e => setArtRates(artRates.map((r, idx) => idx === i ? { ...r, residRate: e.target.value } : r))}
-                            placeholder="0.1" style={{ width: '60px', padding: '4px 8px', border: '1px solid #ddd', borderRadius: '3px', fontSize: '12px', textAlign: 'right' }} />
+                            placeholder="0.1" style={{ width: '55px', padding: '4px 8px', border: '1px solid #ddd', borderRadius: '3px', fontSize: '12px', textAlign: 'right' }} />
                         </td>
                         <td style={tdStyle}>
-                          <input value={item.nonResidRate} onChange={e => setArtRates(artRates.map((r, idx) => idx === i ? { ...r, nonResidRate: e.target.value } : r))}
-                            placeholder="0.5" style={{ width: '60px', padding: '4px 8px', border: '1px solid #ddd', borderRadius: '3px', fontSize: '12px', textAlign: 'right' }} />
+                          <input value={item.nonResidRate1 ?? item.nonResidRate ?? ''} onChange={e => setArtRates(artRates.map((r, idx) => idx === i ? { ...r, nonResidRate1: e.target.value } : r))}
+                            placeholder="0.7" style={{ width: '75px', padding: '4px 8px', border: '1px solid #7b1fa2', borderRadius: '3px', fontSize: '12px', textAlign: 'right', color: '#7b1fa2', fontWeight: 'bold' }} />
+                        </td>
+                        <td style={tdStyle}>
+                          <input value={item.nonResidRate2 ?? item.nonResidRate ?? ''} onChange={e => setArtRates(artRates.map((r, idx) => idx === i ? { ...r, nonResidRate2: e.target.value } : r))}
+                            placeholder="0.5" style={{ width: '75px', padding: '4px 8px', border: '1px solid #c62828', borderRadius: '3px', fontSize: '12px', textAlign: 'right', color: '#c62828', fontWeight: 'bold' }} />
                         </td>
                         <td style={{ ...tdStyle, textAlign: 'center' }}>
                           <button onClick={() => setArtRates(artRates.filter((_, idx) => idx !== i))}
@@ -2673,7 +2763,7 @@ export function SettingsModal({ onClose, constructPeriod }) {
                   </tbody>
                 </table>
                 <div style={{ fontSize: '11px', color: '#888', marginTop: '12px', padding: '8px', backgroundColor: '#f8f9fa', borderRadius: '4px' }}>
-                  💡 서울특별시 등 다른 지역 조례를 찾으시면 위 "+ 지역 추가" 버튼으로 직접 추가하세요.
+                  💡 서울·부산 외 다른 지역은 "+ 지역 추가" 버튼으로 직접 추가하세요.
                 </div>
               </div>
             )}
