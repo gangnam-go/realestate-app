@@ -249,37 +249,6 @@ function LandCostSection({ data, onChange, archData }) {
   const update = (key, val) => onChange({ ...d, [key]: val });
   const updateFunding = (key, val) => onChange({ ...d, [`${key}_funding`]: val });
 
-  // ── 토지매입비 계산 (그룹별 합계 — 아래 그룹 계산 후 집계) ──
-  // 임시 landAmt (그룹 계산 전 fallback용)
-  const pyPrice   = parseFloat(parseNumber(d.landPyPrice)) || 0;
-  const calcLand  = Math.round(pyPrice * parseFloat(totalPy));
-  const overrideAmt = parseFloat(parseNumber(d.landOverride));
-
-  // ── 취득세 ──
-  const acqRate   = parseFloat(d.acqTaxRate ?? '4.6') || 0;
-  const acqAmt    = d.acqTaxOverride
-    ? parseFloat(parseNumber(d.acqTaxOverride)) || 0
-    : Math.round(landAmt * acqRate / 100);
-
-  // ── 국민주택채권할인 (토지매입) ──
-  // 토지 시가표준액 = 건축개요 토지조서 개별공시지가금액(원) 합계
-  const totalPublicPrice = plots.reduce((s, p) => s + (parseFloat(parseNumber(p.totalPrice)) || 0), 0);
-  // totalPrice는 원 단위
-  // 매입요율: 토지 1억이상, 광역시 → 50/1,000
-  const bondBuyRate    = parseFloat(d.bondBuyRate  ?? '50')   || 0;  // /1,000
-  const bondDiscRate   = parseFloat(d.bondDiscRate ?? '13.5') || 0;  // %
-  const bondBuyAmt     = Math.round(totalPublicPrice * bondBuyRate / 1000);  // 채권매입금액(원)
-  const bondAmt        = d.bondOverride
-    ? parseFloat(parseNumber(d.bondOverride)) || 0
-    : Math.round(bondBuyAmt * bondDiscRate / 100 / 1000); // 천원
-
-  // ── 법무사/등기비 ──
-  const legalMode = d.legalMode || 'rate';
-  const legalRate = parseFloat(d.legalRate ?? '0.3') || 0;
-  const legalAmt  = legalMode === 'rate'
-    ? Math.round(landAmt * legalRate / 100)
-    : parseFloat(parseNumber(d.legalDirect)) || 0;
-
   // ── 그룹별 면적 계산 ──
   const groups = ['A','B','C','D'];
   const groupPlots = {};
@@ -296,11 +265,41 @@ function LandCostSection({ data, onChange, archData }) {
   const groupLandAmts = {};
   activeGroups.forEach(g => {
     const gd = landGroupData[g] || {};
-    const pyPrice = parseFloat(parseNumber(gd.pyPrice)) || 0;
-    const calcAmt = Math.round(pyPrice * groupPy[g]);
-    const overrideAmt = parseFloat(parseNumber(gd.override));
-    groupLandAmts[g] = overrideAmt > 0 ? overrideAmt : calcAmt;
+    const gPyPrice = parseFloat(parseNumber(gd.pyPrice)) || 0;
+    const gCalcAmt = Math.round(gPyPrice * groupPy[g]);
+    const gOverride = parseFloat(parseNumber(gd.override));
+    groupLandAmts[g] = gOverride > 0 ? gOverride : gCalcAmt;
   });
+
+  // ── 토지매입비 합계 ──
+  const pyPrice     = parseFloat(parseNumber(d.landPyPrice)) || 0;
+  const calcLand    = Math.round(pyPrice * parseFloat(totalPy));
+  const overrideAmt = parseFloat(parseNumber(d.landOverride));
+  const landAmt = activeGroups.length > 0
+    ? activeGroups.reduce((s, g) => s + groupLandAmts[g], 0)
+    : (overrideAmt > 0 ? overrideAmt : calcLand);
+
+  // ── 취득세 ──
+  const acqRate   = parseFloat(d.acqTaxRate ?? '4.6') || 0;
+  const acqAmt    = d.acqTaxOverride
+    ? parseFloat(parseNumber(d.acqTaxOverride)) || 0
+    : Math.round(landAmt * acqRate / 100);
+
+  // ── 국민주택채권할인 (토지매입) ──
+  const totalPublicPrice = plots.reduce((s, p) => s + (parseFloat(parseNumber(p.totalPrice)) || 0), 0);
+  const bondBuyRate    = parseFloat(d.bondBuyRate  ?? '50')   || 0;
+  const bondDiscRate   = parseFloat(d.bondDiscRate ?? '13.5') || 0;
+  const bondBuyAmt     = Math.round(totalPublicPrice * bondBuyRate / 1000);
+  const bondAmt        = d.bondOverride
+    ? parseFloat(parseNumber(d.bondOverride)) || 0
+    : Math.round(bondBuyAmt * bondDiscRate / 100 / 1000);
+
+  // ── 법무사/등기비 ──
+  const legalMode = d.legalMode || 'rate';
+  const legalRate = parseFloat(d.legalRate ?? '0.3') || 0;
+  const legalAmt  = legalMode === 'rate'
+    ? Math.round(landAmt * legalRate / 100)
+    : parseFloat(parseNumber(d.legalDirect)) || 0;
 
   // ── 중개수수료 (그룹별 토지매입비 기준) ──
   const agentMode = d.agentMode || 'rate';
@@ -311,11 +310,6 @@ function LandCostSection({ data, onChange, archData }) {
         return s + Math.round(groupLandAmts[g] * rate / 100);
       }, 0)
     : parseFloat(parseNumber(d.agentDirect)) || 0;
-
-  // ── 토지매입비 합계 (그룹별 합산, 그룹 없으면 기존 단일 입력) ──
-  const landAmt = activeGroups.length > 0
-    ? activeGroups.reduce((s, g) => s + groupLandAmts[g], 0)
-    : (overrideAmt > 0 ? overrideAmt : calcLand);
 
   // ── 기타 항목 ──
   const etcItems  = d.etcItems || [];
