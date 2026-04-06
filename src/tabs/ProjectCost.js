@@ -579,7 +579,7 @@ function LandCostSection({ data, onChange, archData }) {
                     const gColor = {'A':'#2980b9','B':'#1a7a4a','C':'#b7770d','D':'#c0392b'}[g] || '#333';
                     const gBg   = {'A':'#eaf1f8','B':'#eaf8f0','C':'#fef9e7','D':'#fdecea'}[g] || 'white';
                     const rate  = agentGroupRates[g] ?? '0.5';
-                    const amt   = Math.round(groupAmts[g] * (parseFloat(rate)||0) / 100);
+                    const amt   = Math.round(groupLandAmts[g] * (parseFloat(rate)||0) / 100);
                     return (
                       <div key={g} style={{ display:'flex', alignItems:'center', gap:'4px', backgroundColor:gBg, borderRadius:'4px', padding:'3px 6px' }}>
                         <span style={{ fontSize:'11px', fontWeight:'bold', color:gColor, minWidth:'30px' }}>{g}그룹</span>
