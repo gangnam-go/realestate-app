@@ -36,7 +36,7 @@ function ProjectList({ onSelect }) {
     const isDup = projects.some(p => p.region === region.trim() && p.name === name.trim());
     if (isDup) return alert('동일한 지역과 프로젝트명이 이미 존재합니다');
     await addDoc(collection(db, 'projects'), {
-      region: region.trim(), name: name.trim(),
+      region: region.trim(), name: `${region.trim()} ${name.trim()}`,
       createdAt: Date.now(),
     });
     setRegion(''); setName(''); setShowNew(false);
@@ -168,7 +168,7 @@ function ProjectList({ onSelect }) {
             <div key={p.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', backgroundColor: 'white', border: '1px solid #ddd', borderRadius: '8px', padding: '16px 20px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span style={{ fontWeight: 'bold', fontSize: '15px', color: '#2c3e50' }}>{p.region ? `${p.region} ${p.name}` : p.name}</span>
+                  <span style={{ fontWeight: 'bold', fontSize: '15px', color: '#2c3e50' }}>{p.name}</span>
                   <span style={{
                     fontSize: '11px', fontWeight: 'bold', padding: '2px 8px', borderRadius: '10px',
                     backgroundColor: !p.submitTo ? '#eafaf1' : '#fdedec',
