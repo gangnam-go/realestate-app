@@ -2428,8 +2428,13 @@ function IncomeReport({ incomeData, projectName }) {
               {renderRows(aptRows, 'apt')}
               {renderSubtotal('공동주택', aptTotal, calcContPy(aptRows, 'apt'))}
             </>}
+            {publicRows.length > 0 && <>
+              <tr><td style={secS()} colSpan={10}>공공주택</td></tr>
+              {renderRows(publicRows, 'apt')}
+              {renderSubtotal('공공주택', publicTotal, calcContPy(publicRows, 'apt'))}
+            </>}
             {balRows.length > 0 && balBurden === '분양자 부담' && <>
-              <tr><td style={secS()} colSpan={10}>발코니확장</td></tr>
+              <tr><td style={secS()} colSpan={10}>발코니확장{balIncludePublic ? ' (공공주택 포함)' : ''}</td></tr>
               {balRows.map((r, i) => (
                 <tr key={i}>
                   <td style={tdS('center')}>{r.type}</td>
@@ -2455,6 +2460,11 @@ function IncomeReport({ incomeData, projectName }) {
               <tr><td style={secS()} colSpan={10}>근린상가</td></tr>
               {renderRows(storeRows, 'store')}
               {renderSubtotal('근린상가', storeTotal, calcContPy(storeRows, 'store'))}
+            </>}
+            {pubfacRows.length > 0 && <>
+              <tr><td style={secS()} colSpan={10}>공공시설</td></tr>
+              {renderRows(pubfacRows, 'store')}
+              {renderSubtotal('공공시설', pubfacTotal, calcContPy(pubfacRows, 'store'))}
             </>}
             {/* 합계행 */}
             <tr>
