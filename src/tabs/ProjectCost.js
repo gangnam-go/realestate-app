@@ -8426,18 +8426,43 @@ function PaymentScheduleSection({ costSummary, landData, directData, indirectDat
   // ── 금액 헬퍼 ──
   const parseAmt = (v) => parseFloat(String(v||'').replace(/,/g,''))||0;
 
-  // ── 토지관련비용 금액 ──
-  const pyPrice  = parseAmt(landData?.landPyPrice);
-  const totalM2  = (archData?.plots||[]).reduce((s,p)=>s+(parseFloat(String(p.areaM2||'').replace(/,/g,''))||0),0);
-  const calcLand = Math.round(pyPrice * totalM2 * 0.3025);
-  const ovLand   = parseAmt(landData?.landOverride);
-  const landAmt  = ovLand > 0 ? ovLand : calcLand;
+  // ── 토지관련비용 금액 (그룹별 합산) ──
+  const plots_ps   = archData?.plots || [];
+  const totalM2_ps = plots_ps.reduce((s,p)=>s+(parseFloat(String(p.areaM2||'').replace(/,/g,''))||0),0);
+  const totalPy_ps = totalM2_ps * 0.3025;
+  const landGroupData_ps = landData?.landGroups || {};
+  const groups_ps = ['A','B','C','D'];
+  const activeGroups_ps = groups_ps.filter(g => {
+    const gM2 = plots_ps.filter(p=>(p.group||'A')===g)
+      .reduce((s,p)=>s+(parseFloat(String(p.areaM2||'').replace(/,/g,''))||0),0);
+    return gM2 > 0;
+  });
+  const groupLandAmts_ps = {};
+  activeGroups_ps.forEach(g => {
+    const gM2 = plots_ps.filter(p=>(p.group||'A')===g)
+      .reduce((s,p)=>s+(parseFloat(String(p.areaM2||'').replace(/,/g,''))||0),0);
+    const gPy = gM2 * 0.3025;
+    const gd  = landGroupData_ps[g] || {};
+    const gPyPrice  = parseAmt(gd.pyPrice);
+    const gCalcAmt  = Math.round(gPyPrice * gPy);
+    const gOverride = parseAmt(gd.override);
+    groupLandAmts_ps[g] = gOverride > 0 ? gOverride : gCalcAmt;
+  });
+  let landAmt;
+  if (activeGroups_ps.length > 0) {
+    landAmt = activeGroups_ps.reduce((s,g)=>s+groupLandAmts_ps[g], 0);
+  } else {
+    const pyPrice_ps = parseAmt(landData?.landPyPrice);
+    const calcL_ps   = Math.round(pyPrice_ps * totalPy_ps);
+    const ovLand_ps  = parseAmt(landData?.landOverride);
+    landAmt = ovLand_ps > 0 ? ovLand_ps : calcL_ps;
+  }
 
   const acqAmt = landData?.acqTaxOverride
     ? parseAmt(landData.acqTaxOverride)
     : Math.round(landAmt * (parseFloat(landData?.acqTaxRate??'4.6')||0) / 100);
 
-  const bondPublic = (archData?.plots||[]).reduce((s,p)=>s+(parseFloat(String(p.totalPrice||'').replace(/,/g,''))||0),0);
+  const bondPublic = plots_ps.reduce((s,p)=>s+(parseFloat(String(p.totalPrice||'').replace(/,/g,''))||0),0);
   const bondAmt    = landData?.bondOverride
     ? parseAmt(landData.bondOverride)
     : Math.round(bondPublic * (parseFloat(landData?.bondBuyRate??'50')||0) / 1000 * (parseFloat(landData?.bondDiscRate??'13.5')||0) / 100 / 1000);
@@ -8445,8 +8470,18 @@ function PaymentScheduleSection({ costSummary, landData, directData, indirectDat
   const legalDirect = parseAmt(landData?.legalDirect);
   const legalAmt    = legalDirect > 0 ? legalDirect : Math.round(landAmt * (parseFloat(landData?.legalRate??'0.3')||0) / 100);
 
-  const agentDirect = parseAmt(landData?.agentDirect);
-  const agentAmt    = agentDirect > 0 ? agentDirect : Math.round(landAmt * (parseFloat(landData?.agentRate??'0.5')||0) / 100);
+  // 중개수수료 — 그룹별 요율 적용 후 합산
+  const agentGroupRates_ps = landData?.agentGroupRates || {};
+  const agentMode_ps = landData?.agentMode || 'rate';
+  let agentAmt = 0;
+  if (agentMode_ps === 'rate' && activeGroups_ps.length > 0) {
+    activeGroups_ps.forEach(g => {
+      const rate = parseFloat(agentGroupRates_ps[g] ?? '0.5') || 0;
+      agentAmt += Math.round(groupLandAmts_ps[g] * rate / 100);
+    });
+  } else {
+    agentAmt = parseAmt(landData?.agentDirect);
+  }
 
   // ── 토지매입비 분할 (계약금/중도금/잔금) ──
   const depositPct = parseFloat(d.deposit_pct ?? '10') || 10;
