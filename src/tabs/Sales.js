@@ -538,7 +538,7 @@ function Sales({ data, incomeData, archData, onChange, onSave, saving }) {
   const settlePeriod    = parseFloat(parseNumber(archData.settlePeriod))    || 6;
   const totalMonths     = prepPeriod + constructPeriod + settlePeriod;
   const constructMonth  = prepPeriod + 1;
-  const junMonth        = prepPeriod + constructPeriod + 1;
+  const junMonth        = prepPeriod + constructPeriod;
 
   const constructYear     = archData.constructYear  || '2027';
   const constructMonthVal = archData.constructMonth || '1';
