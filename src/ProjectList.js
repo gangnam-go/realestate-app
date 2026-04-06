@@ -18,9 +18,10 @@ function ProjectList({ onSelect }) {
       const { id: _ignored, ...rest } = d.data();
       const docId = d.id;
       return {
-        id:     docId,
-        name:   rest.name   || docId,
-        region: rest.region || '',
+        id:       docId,
+        name:     rest.name     || docId,
+        region:   rest.region   || '',
+        submitTo: rest.submitTo || '',
         ...rest,
       };
     });
@@ -60,6 +61,7 @@ function ProjectList({ onSelect }) {
       const newDocRef = await addDoc(collection(db, 'projects'), {
         region:    copyTarget.region,
         name:      copyTarget.name,
+        submitTo:  copySubmitTo.trim(),
         createdAt: Date.now(),
       });
 
@@ -166,7 +168,17 @@ function ProjectList({ onSelect }) {
           {projects.map(p => (
             <div key={p.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', backgroundColor: 'white', border: '1px solid #ddd', borderRadius: '8px', padding: '16px 20px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
               <div>
-                <div style={{ fontWeight: 'bold', fontSize: '15px', color: '#2c3e50' }}>{p.name}</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ fontWeight: 'bold', fontSize: '15px', color: '#2c3e50' }}>{p.name}</span>
+                  <span style={{
+                    fontSize: '11px', fontWeight: 'bold', padding: '2px 8px', borderRadius: '10px',
+                    backgroundColor: !p.submitTo ? '#eafaf1' : '#fdedec',
+                    color: !p.submitTo ? '#27ae60' : '#c0392b',
+                    border: `1px solid ${!p.submitTo ? '#a9dfbf' : '#f5b7b1'}`,
+                  }}>
+                    {!p.submitTo ? '📁 원본' : `📤 ${p.submitTo}`}
+                  </span>
+                </div>
                 <div style={{ fontSize: '12px', color: '#888', marginTop: '4px' }}>
                   {p.region} · {p.createdAt ? new Date(Number(p.createdAt)).toLocaleDateString('ko-KR') : '날짜 없음'}
                 </div>
