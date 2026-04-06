@@ -182,7 +182,7 @@ function ProjectList({ onSelect }) {
                   </span>
                 </div>
                 <div style={{ fontSize: '12px', color: '#888', marginTop: '4px' }}>
-                  {p.region} · {p.createdAt ? new Date(Number(p.createdAt)).toLocaleDateString('ko-KR') : '날짜 없음'}
+                  {p.createdAt ? new Date(Number(p.createdAt)).toLocaleDateString('ko-KR') : '날짜 없음'}
                 </div>
               </div>
               <div style={{ display: 'flex', gap: '8px' }}>
