@@ -1280,7 +1280,7 @@ function ArtInstallModal({ onClose, onApply, archData, incomeData, settingsData,
               <div>
                 <label style={{ fontSize: '12px', fontWeight: 'bold', color: '#2e7d32', display: 'block', marginBottom: '4px' }}>주거요율</label>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <input value={d.residRate ?? selectedArtRate?.residRate ?? '0.1'}
+                  <input value={d.residRate || selectedArtRate?.residRate || '0.1'}
                     onChange={e => update('residRate', e.target.value)}
                     readOnly={(d.region || '') !== '직접입력'}
                     style={{ width: '70px', padding: '5px 8px', border: '1px solid #2e7d32', borderRadius: '4px', fontSize: '13px', textAlign: 'right',
@@ -1294,7 +1294,7 @@ function ArtInstallModal({ onClose, onApply, archData, incomeData, settingsData,
                   비주거 1구간 (1만~2만㎡)
                 </label>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <input value={d.nonResidRate1 ?? selectedArtRate?.nonResidRate1 ?? '0.7'}
+                  <input value={d.nonResidRate1 || selectedArtRate?.nonResidRate1 || '0.7'}
                     onChange={e => update('nonResidRate1', e.target.value)}
                     readOnly={(d.region || '') !== '직접입력'}
                     style={{ width: '70px', padding: '5px 8px', border: '1px solid #6a1b9a', borderRadius: '4px', fontSize: '13px', textAlign: 'right',
@@ -1308,7 +1308,7 @@ function ArtInstallModal({ onClose, onApply, archData, incomeData, settingsData,
                   비주거 2구간 (2만㎡ 초과분)
                 </label>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <input value={d.nonResidRate2 ?? selectedArtRate?.nonResidRate2 ?? '0.5'}
+                  <input value={d.nonResidRate2 || selectedArtRate?.nonResidRate2 || '0.5'}
                     onChange={e => update('nonResidRate2', e.target.value)}
                     readOnly={(d.region || '') !== '직접입력'}
                     style={{ width: '70px', padding: '5px 8px', border: '1px solid #c62828', borderRadius: '4px', fontSize: '13px', textAlign: 'right',
