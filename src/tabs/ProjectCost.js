@@ -339,7 +339,7 @@ function LandCostSection({ data, onChange, archData }) {
         </thead>
         <tbody>
 
-          {/* ① 토지매입비 */}
+          {/* ① 토지매입비 (그룹별) */}
           <tr style={{ backgroundColor: 'white' }}>
             <td style={tdStyle}>
               <span style={labelStyle}>① 토지매입비</span>
@@ -352,48 +352,57 @@ function LandCostSection({ data, onChange, archData }) {
               <div style={{ fontSize: '11px', color: '#555' }}>매매계약 기준</div>
             </td>
             <td style={tdStyle}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                {/* 평당단가 입력 → 총액 자동계산 */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  {numInput(d.landPyPrice, v => {
-                    // 평당단가 입력 시 총액override 초기화
-                    onChange({ ...d, landPyPrice: v, landOverride: '' });
-                  }, '평당단가')}
-                  <span style={{ fontSize: '11px', color: '#888', whiteSpace: 'nowrap' }}>천원/평</span>
-                </div>
-                {/* 총액 입력 → 평당단가 역산 */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <input
-                    value={d.landOverride || ''}
-                    onChange={e => {
-                      const raw = parseNumber(e.target.value);
-                      const totalAmt = parseFloat(raw) || 0;
-                      const py = parseFloat(totalPy) || 0;
-                      // 총액 입력 시 평당단가 역산
-                      const pyPrice = py > 0 ? formatNumber(Math.round(totalAmt / py)) : d.landPyPrice;
-                      onChange({ ...d, landOverride: formatNumber(raw), landPyPrice: pyPrice });
-                    }}
-                    placeholder="총액 직접입력 (천원)"
-                    style={{
-                      flex: 1, padding: '4px 8px',
-                      border: `1px solid ${d.landOverride ? '#2980b9' : '#ddd'}`,
-                      borderRadius: '3px', fontSize: '11px', textAlign: 'right',
-                      backgroundColor: d.landOverride ? '#eaf4fb' : 'white',
-                    }}
-                  />
-                  {d.landOverride && (
-                    <button onClick={() => onChange({ ...d, landOverride: '' })}
-                      style={{ padding: '3px 6px', fontSize: '11px', backgroundColor: '#2980b9', color: 'white', border: 'none', borderRadius: '3px', cursor: 'pointer' }}>
-                      ✕
-                    </button>
-                  )}
-                </div>
-                {d.landOverride && (
-                  <div style={{ fontSize: '10px', color: '#2980b9' }}>
-                    역산 평당단가: {formatNumber(Math.round((parseFloat(parseNumber(d.landOverride))||0) / (parseFloat(totalPy)||1)))}천원/평
+              {activeGroups.length === 0 ? (
+                <div style={{ fontSize: '11px', color: '#aaa' }}>토지조서에 필지를 추가하세요</div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {activeGroups.map(g => {
+                    const gColor = {'A':'#2980b9','B':'#1a7a4a','C':'#b7770d','D':'#c0392b'}[g] || '#333';
+                    const gBg   = {'A':'#eaf1f8','B':'#eaf8f0','C':'#fef9e7','D':'#fdecea'}[g] || 'white';
+                    const gd    = landGroupData[g] || {};
+                    const py    = groupPy[g];
+                    const amt   = groupLandAmts[g];
+                    return (
+                      <div key={g} style={{ backgroundColor: gBg, borderRadius: '6px', padding: '6px 8px', border: `1px solid ${gColor}33` }}>
+                        <div style={{ fontSize: '11px', fontWeight: 'bold', color: gColor, marginBottom: '4px' }}>
+                          {g}그룹 — {formatNumber(py.toFixed(2))}평
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            {numInput(gd.pyPrice || '', v => {
+                              update('landGroups', { ...landGroupData, [g]: { ...gd, pyPrice: v, override: '' } });
+                            }, '평당단가')}
+                            <span style={{ fontSize: '11px', color: '#888', whiteSpace: 'nowrap' }}>천원/평</span>
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <input
+                              value={gd.override || ''}
+                              onChange={e => {
+                                const raw = parseNumber(e.target.value);
+                                const totalAmt = parseFloat(raw) || 0;
+                                const pyCalc = py > 0 ? formatNumber(Math.round(totalAmt / py)) : gd.pyPrice;
+                                update('landGroups', { ...landGroupData, [g]: { ...gd, override: formatNumber(raw), pyPrice: pyCalc } });
+                              }}
+                              placeholder="총액 직접입력 (천원)"
+                              style={{ flex: 1, padding: '4px 8px', border: `1px solid ${gd.override ? gColor : '#ddd'}`, borderRadius: '3px', fontSize: '11px', textAlign: 'right', backgroundColor: gd.override ? gBg : 'white' }}
+                            />
+                            {gd.override && (
+                              <button onClick={() => update('landGroups', { ...landGroupData, [g]: { ...gd, override: '' } })}
+                                style={{ padding: '3px 6px', fontSize: '11px', backgroundColor: gColor, color: 'white', border: 'none', borderRadius: '3px', cursor: 'pointer' }}>✕</button>
+                            )}
+                          </div>
+                          <div style={{ fontSize: '11px', fontWeight: 'bold', color: gColor, textAlign: 'right' }}>
+                            = {formatNumber(amt)} 천원
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  <div style={{ fontSize: '12px', fontWeight: 'bold', color: '#2c3e50', textAlign: 'right', borderTop: '1px solid #ddd', paddingTop: '4px' }}>
+                    합계: {formatNumber(landAmt)} 천원
                   </div>
-                )}
-              </div>
+                </div>
+              )}
             </td>
             {(() => { const vc = vatCell(landAmt, !!d.land_taxable); return <td style={tdStyle}>{vc.cell}</td>; })()}
             <td style={tdStyle}>
@@ -562,7 +571,8 @@ function LandCostSection({ data, onChange, archData }) {
                           onChange={e => update('agentGroupRates', { ...agentGroupRates, [g]: e.target.value })}
                           style={{ width:'50px', padding:'3px 6px', border:'1px solid #ddd', borderRadius:'3px', fontSize:'11px', textAlign:'right' }} />
                         <span style={{ fontSize:'11px', color:'#888' }}>%</span>
-                        <span style={{ fontSize:'11px', color:'#555', marginLeft:'4px' }}>= {(amt).toLocaleString('ko-KR')} 천</span>
+                        <span style={{ fontSize:'11px', color:'#aaa', marginLeft:'2px' }}>× {formatNumber(groupLandAmts[g])}천</span>
+                        <span style={{ fontSize:'11px', color:gColor, fontWeight:'bold', marginLeft:'4px' }}>= {(Math.round(groupLandAmts[g] * (parseFloat(rate)||0) / 100)).toLocaleString('ko-KR')} 천</span>
                       </div>
                     );
                   })}
