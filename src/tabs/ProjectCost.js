@@ -281,11 +281,24 @@ function LandCostSection({ data, onChange, archData }) {
     ? Math.round(landAmt * legalRate / 100)
     : parseFloat(parseNumber(d.legalDirect)) || 0;
 
-  // ── 중개수수료 ──
+  // ── 중개수수료 (그룹별) ──
   const agentMode = d.agentMode || 'rate';
-  const agentRate = parseFloat(d.agentRate ?? '0.5') || 0;
-  const agentAmt  = agentMode === 'rate'
-    ? Math.round(landAmt * agentRate / 100)
+  // 그룹별 토지금액 합산 (plots의 group 필드 기준, totalPrice는 원 단위 → 천원으로 변환)
+  const groups = ['A','B','C','D'];
+  const groupAmts = {};
+  groups.forEach(g => {
+    const gPlots = plots.filter(p => (p.group || 'A') === g);
+    // totalPrice가 원 단위이므로 /1000 → 천원
+    groupAmts[g] = gPlots.reduce((s, p) => s + (parseFloat(parseNumber(p.totalPrice)) || 0), 0) / 1000;
+  });
+  const activeGroups = groups.filter(g => groupAmts[g] > 0);
+  // 그룹별 요율
+  const agentGroupRates = d.agentGroupRates || {};
+  const agentAmt = agentMode === 'rate'
+    ? activeGroups.reduce((s, g) => {
+        const rate = parseFloat(agentGroupRates[g] ?? '0.5') || 0;
+        return s + Math.round(groupAmts[g] * rate / 100);
+      }, 0)
     : parseFloat(parseNumber(d.agentDirect)) || 0;
 
   // ── 기타 항목 ──
@@ -517,7 +530,7 @@ function LandCostSection({ data, onChange, archData }) {
             </td>
           </tr>
 
-          {/* ④ 중개수수료 */}
+          {/* ⑤ 중개수수료 (그룹별) */}
           <tr style={{ backgroundColor: '#fafafa' }}>
             <td style={tdStyle}><span style={labelStyle}>⑤ 중개수수료</span><br/><TaxBadge checked={!!d.agent_taxable} onChange={v => update('agent_taxable', v)} /></td>
             <td style={{ ...tdStyle, textAlign: 'center' }}>
@@ -534,11 +547,25 @@ function LandCostSection({ data, onChange, archData }) {
             </td>
             <td style={tdStyle}>
               {(d.agentMode || 'rate') === 'rate' ? (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <input value={d.agentRate ?? '0.5'} onChange={e => update('agentRate', e.target.value)}
-                    style={{ width: '60px', padding: '5px 8px', border: '1px solid #ddd', borderRadius: '3px', fontSize: '12px', textAlign: 'right' }} />
-                  <span style={{ fontSize: '11px', color: '#888' }}>%</span>
-                  <span style={{ fontSize: '10px', color: '#aaa', marginLeft: '4px' }}>토지매입비 기준</span>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  {activeGroups.length === 0 ? (
+                    <span style={{ fontSize: '11px', color: '#aaa' }}>토지조서에 필지를 추가하세요</span>
+                  ) : activeGroups.map(g => {
+                    const gColor = {'A':'#2980b9','B':'#1a7a4a','C':'#b7770d','D':'#c0392b'}[g] || '#333';
+                    const gBg   = {'A':'#eaf1f8','B':'#eaf8f0','C':'#fef9e7','D':'#fdecea'}[g] || 'white';
+                    const rate  = agentGroupRates[g] ?? '0.5';
+                    const amt   = Math.round(groupAmts[g] * (parseFloat(rate)||0) / 100);
+                    return (
+                      <div key={g} style={{ display:'flex', alignItems:'center', gap:'4px', backgroundColor:gBg, borderRadius:'4px', padding:'3px 6px' }}>
+                        <span style={{ fontSize:'11px', fontWeight:'bold', color:gColor, minWidth:'30px' }}>{g}그룹</span>
+                        <input value={rate}
+                          onChange={e => update('agentGroupRates', { ...agentGroupRates, [g]: e.target.value })}
+                          style={{ width:'50px', padding:'3px 6px', border:'1px solid #ddd', borderRadius:'3px', fontSize:'11px', textAlign:'right' }} />
+                        <span style={{ fontSize:'11px', color:'#888' }}>%</span>
+                        <span style={{ fontSize:'11px', color:'#555', marginLeft:'4px' }}>= {(amt).toLocaleString('ko-KR')} 천</span>
+                      </div>
+                    );
+                  })}
                 </div>
               ) : (
                 numInput(d.agentDirect, v => update('agentDirect', v), '금액 입력')
