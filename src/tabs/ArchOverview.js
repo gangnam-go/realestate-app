@@ -170,7 +170,7 @@ function PeriodCalcModal({ floors, onApply, onClose, sel, setSel, extraVal, setE
   );
 }
 
-const emptyPlot = () => ({ dong: '', type: '', mainNo: '', subNo: '', areaM2: '', areaPy: '', pricePerM2: '', totalPrice: '' });
+const emptyPlot = () => ({ dong: '', type: '', mainNo: '', subNo: '', areaM2: '', areaPy: '', pricePerM2: '', totalPrice: '', group: 'A', memo: '' });
 
 // ── OCR txt 파일 파싱 (여러 파일 한번에) ──
 const parseLandOcrText = (text) => {
@@ -311,6 +311,8 @@ function LandModal({ plots, setPlots, onClose }) {
             totalPrice: (areaM2Num > 0 && priceNum > 0)
               ? formatNumber(Math.round(areaM2Num * priceNum))
               : '',
+            group: 'A',
+            memo:  '',
           });
           successCount++;
         } else {
@@ -357,6 +359,8 @@ function LandModal({ plots, setPlots, onClose }) {
             totalPrice: (areaM2Num > 0 && priceNum > 0)
               ? formatNumber(Math.round(areaM2Num * priceNum))
               : '',
+            group: 'A',
+            memo:  '',
           });
           successCount++;
         } else {
@@ -500,7 +504,7 @@ function LandModal({ plots, setPlots, onClose }) {
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
             <thead>
               <tr>
-                {['행정동','구분','본번','부번','면적(㎡)','면적(평) 자동','공시지가(㎡당)','개별공시지가금액(원)','삭제'].map(h => (
+                {['행정동','구분','본번','부번','면적(㎡)','면적(평) 자동','공시지가(㎡당)','개별공시지가금액(원)','그룹','메모','삭제'].map(h => (
                   <th key={h} style={th}>{h}</th>
                 ))}
               </tr>
@@ -516,6 +520,15 @@ function LandModal({ plots, setPlots, onClose }) {
                   <td style={td}><input style={ro}   value={p.areaPy}     readOnly /></td>
                   <td style={td}><input style={inp}  value={p.pricePerM2} onChange={e => update(i, 'pricePerM2', e.target.value)} /></td>
                   <td style={td}><input style={ro}   value={p.totalPrice} readOnly /></td>
+                  <td style={td}>
+                    <select value={p.group || 'A'} onChange={e => update(i, 'group', e.target.value)}
+                      style={{ width: '100%', padding: '4px 4px', border: '1px solid #ddd', borderRadius: '3px', fontSize: '12px',
+                        backgroundColor: {'A':'#eaf1f8','B':'#eaf8f0','C':'#fef9e7','D':'#fdecea'}[p.group||'A'] || 'white',
+                        fontWeight: 'bold', color: {'A':'#2980b9','B':'#1a7a4a','C':'#b7770d','D':'#c0392b'}[p.group||'A'] || '#333' }}>
+                      {['A','B','C','D'].map(g => <option key={g} value={g}>{g}그룹</option>)}
+                    </select>
+                  </td>
+                  <td style={td}><input style={inpL} value={p.memo || ''} onChange={e => update(i, 'memo', e.target.value)} placeholder="메모" /></td>
                   <td style={td} align="center">
                     <button onClick={() => removeRow(i)} style={{ padding: '2px 8px', backgroundColor: '#e74c3c', color: 'white', border: 'none', borderRadius: '3px', cursor: 'pointer' }}>✕</button>
                   </td>
@@ -529,7 +542,7 @@ function LandModal({ plots, setPlots, onClose }) {
                 <td style={{ padding: '6px 8px', textAlign: 'right', fontSize: '12px' }}>{formatNumber(totalPy)}</td>
                 <td></td>
                 <td style={{ padding: '6px 8px', textAlign: 'right', fontSize: '12px' }}>{formatNumber(totalAmt)}</td>
-                <td></td>
+                <td></td><td></td><td></td>
               </tr>
             </tfoot>
           </table>
@@ -546,7 +559,16 @@ function ArchOverview({ data, onChange, onSave, saving }) {
   const [periodSel,   setPeriodSel]   = useState({ foundation: 1.0, soil: 1.0, frame: 1.1, usage: 1.0, influence: 1.0 });
   const [periodExtra, setPeriodExtra] = useState('0');
 
-  useEffect(() => { onChange({ ...data, plots }); }, [plots]);
+  useEffect(() => {
+    // 그룹별 totalPrice 합계 계산해서 같이 저장
+    const groupTotals = {};
+    ['A','B','C','D'].forEach(g => {
+      groupTotals[g] = plots
+        .filter(p => (p.group || 'A') === g)
+        .reduce((s, p) => s + (parseFloat(String(p.totalPrice||'').replace(/,/g,'')) || 0), 0);
+    });
+    onChange({ ...data, plots, plotGroupTotals: groupTotals });
+  }, [plots]); // eslint-disable-line
   useEffect(() => { if (data.plots) setPlots(data.plots); }, [data.plots]);
 
   // ── 자동계산 ──
