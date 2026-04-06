@@ -7953,7 +7953,7 @@ function calcMonthlyPayments({
     const offiEndMonth_ = parseInt(offiCfg_.endMonth)||0;
     const offiEndIdx_   = offiEndMonth_ > 0 ? offiStartIdx_ + offiEndMonth_ - 1 : prepPeriod_ + conPrd_;
 
-    const junIdx_           = prepPeriod_ + conPrd_;
+    const junIdx_           = prepPeriod_ + conPrd_ - 1;
     const storeStartBefore_ = parseInt(storeCfg_.storeStartBefore)||9;
     const storeEndAfter_    = parseInt(storeCfg_.storeEndAfter)||4;
     const storeStartIdx_    = junIdx_ - storeStartBefore_;
@@ -9813,7 +9813,7 @@ function PaymentScheduleSection({ costSummary, landData, directData, indirectDat
         const offiEndRel   = idxToRel(offiEndIdx);
 
         // 상가 분양일정
-        const junIdx_      = prepPeriod_ + conPrd_;  // 준공 인덱스(1-based)
+        const junIdx_      = prepPeriod_ + conPrd_ - 1;  // 준공 인덱스(0-based)
         const storeStartBefore = parseInt(storeCfg_.storeStartBefore)||9;
         const storeEndAfter    = parseInt(storeCfg_.storeEndAfter)||4;
         const storeStartIdx    = junIdx_ - storeStartBefore;
