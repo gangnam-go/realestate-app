@@ -706,6 +706,12 @@ function ArchOverview({ data, onChange, onSave, saving }) {
           placeholder="2027"
           style={{ width: '80px', padding: '6px 10px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '13px', textAlign: 'right' }}
         />
+        <input
+          value={data.constructYear || String(new Date().getFullYear() + 1)}
+          onChange={e => onChange({ ...data, constructYear: e.target.value || String(new Date().getFullYear() + 1) })}
+          placeholder={String(new Date().getFullYear() + 1)}
+          style={{ width: '80px', padding: '6px 10px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '13px', textAlign: 'right' }}
+        />  
         <span style={{ fontSize: '13px' }}>년</span>
         <select
           value={data.constructMonth || '1'}
