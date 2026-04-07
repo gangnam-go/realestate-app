@@ -4137,7 +4137,8 @@ function WaterModal({ onClose, onApply, archData, incomeData, settingsData, data
   const years      = [...new Set(entries.map(e=>e.year))].sort((a,b)=>b-a);
   const selYear    = d.waterYear || years[0] || '2026';
   const cities     = entries.filter(e=>e.year===selYear).map(e=>e.city);
-  const selCity    = d.waterCity || cities[0] || '부산';
+  const selCityRaw = d.waterCity || cities[0] || '부산';
+  const selCity    = cities.includes(selCityRaw) ? selCityRaw : (cities[0] || '부산');
   const unitData   = entries.find(e=>e.year===selYear && e.city===selCity) || entries.find(e=>e.year===selYear) || {};
   const isSeoul    = selCity === '서울';
   const largeUnit  = parseFloat(unitData.large || (isSeoul ? '1292000' : '926000'));
@@ -4241,7 +4242,7 @@ function WaterModal({ onClose, onApply, archData, incomeData, settingsData, data
             </div>
             <div>
               <label style={{ fontSize:'12px', fontWeight:'bold', color:'#555', display:'block', marginBottom:'4px' }}>지역</label>
-              <select value={selCity} onChange={e => { update('waterCity', e.target.value); update('bizType', 'medium'); }}
+              <select value={selCity} onChange={e => { onChange({ ...d, waterCity: e.target.value, bizType: 'medium' }); }}
                 style={{ padding:'6px 10px', border:'1px solid #1565c0', borderRadius:'4px', fontSize:'13px', color:'#1565c0', fontWeight:'bold' }}>
                 {cities.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
