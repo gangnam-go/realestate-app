@@ -1795,35 +1795,58 @@ function WaterRateSettings({ waterRates, setWaterRates, thStyle, tdStyle }) {
   const activeCity = selCity || cities[0] || '';
   const activeEntry = yearEntries.find(e=>e.city===activeCity) || yearEntries[0] || {};
 
+  // 서울 기본값
+  const DEFAULT_SEOUL_HOME = {'15':'0.93','20':'2.81','25':'4.52','32':'7.22','40':'10.18','50':'23.28','80':'80.55','100':'151.47','150':'265.61','200':'559.79','250':'998.06','300':'1632.22'};
+  const DEFAULT_SEOUL_NON  = {'15':'1.10','20':'2.85','25':'5.39','32':'9.20','40':'13.76','50':'29.73','80':'59.41','100':'126.20','150':'349.64','200':'839.15','250':'2015.27','300':'2776.27'};
+
+  const isSeoul = activeCity === '서울';
+
   const updateEntry = (key, val) => {
     setWaterRates({ ...waterRates, entries: entries.map(e =>
       e.year===activeYear && e.city===activeCity ? {...e,[key]:val} : e
     )});
   };
-  const updateMedPipe = (size, val) => updateEntry('mediumPipes', {...(activeEntry.mediumPipes||DEFAULT_MEDIUM), [size]:val});
-  const updateSmPipe  = (size, val) => updateEntry('smallPipes',  {...(activeEntry.smallPipes||DEFAULT_SMALL),  [size]:val});
+  const updateMedPipe     = (size, val) => updateEntry('mediumPipes', {...(activeEntry.mediumPipes||DEFAULT_MEDIUM), [size]:val});
+  const updateSmPipe      = (size, val) => updateEntry('smallPipes',  {...(activeEntry.smallPipes||DEFAULT_SMALL),  [size]:val});
+  const updateHomePipe    = (size, val) => updateEntry('homePipes',   {...(activeEntry.homePipes||DEFAULT_SEOUL_HOME), [size]:val});
+  const updateNonHomePipe = (size, val) => updateEntry('nonHomePipes',{...(activeEntry.nonHomePipes||DEFAULT_SEOUL_NON),  [size]:val});
 
   const addYear = () => {
     const yr = window.prompt('추가할 연도를 입력하세요 (예: 2027)');
     if (!yr?.trim()) return;
-    const city = window.prompt('도시명을 입력하세요 (예: 부산)') || '부산';
-    const key = yr.trim()+city.trim();
+    const city = window.prompt('도시명을 입력하세요 (예: 부산 또는 서울)') || '부산';
     if (entries.find(e=>e.year===yr.trim()&&e.city===city.trim())) { alert('이미 있어요.'); return; }
+    const isS = city.trim() === '서울';
     setWaterRates({ ...waterRates, entries: [...entries, {
-      year:yr.trim(), city:city.trim(), ordinance:`${city.trim()} 상수도 원인자부담금 징수 조례`,
-      large:'926000', medium:'744000', dailyUse:'196', peakRate:'1.0', avgPerson:'2.38',
-      mediumPipes:{...DEFAULT_MEDIUM}, smallPipes:{...DEFAULT_SMALL},
+      year:yr.trim(), city:city.trim(),
+      ordinance: isS ? '서울특별시 수도시설 이설 등 원인자부담금 징수 조례 제3조' : `${city.trim()} 상수도 원인자부담금 징수 조례`,
+      large: isS ? '1292000' : '926000',
+      largeDrain: isS ? '676000' : '',
+      medium: isS ? '694000' : '744000',
+      dailyUse:'196', peakRate: isS ? '1.17' : '1.0', avgPerson:'2.38',
+      mediumPipes: isS ? {} : {...DEFAULT_MEDIUM},
+      smallPipes:  isS ? {} : {...DEFAULT_SMALL},
+      homePipes:   isS ? {...DEFAULT_SEOUL_HOME} : {},
+      nonHomePipes:isS ? {...DEFAULT_SEOUL_NON}  : {},
     }]});
     setSelYear(yr.trim()); setSelCity(city.trim());
   };
   const addCity = () => {
-    const city = window.prompt(`${activeYear}년에 추가할 도시명을 입력하세요`);
+    const city = window.prompt(`${activeYear}년에 추가할 도시명을 입력하세요 (예: 부산 또는 서울)`);
     if (!city?.trim()) return;
     if (cities.includes(city.trim())) { alert('이미 있어요.'); return; }
+    const isS = city.trim() === '서울';
     setWaterRates({ ...waterRates, entries: [...entries, {
-      year:activeYear, city:city.trim(), ordinance:`${city.trim()} 상수도 원인자부담금 징수 조례`,
-      large:'926000', medium:'744000', dailyUse:'196', peakRate:'1.0', avgPerson:'2.38',
-      mediumPipes:{...DEFAULT_MEDIUM}, smallPipes:{...DEFAULT_SMALL},
+      year:activeYear, city:city.trim(),
+      ordinance: isS ? '서울특별시 수도시설 이설 등 원인자부담금 징수 조례 제3조' : `${city.trim()} 상수도 원인자부담금 징수 조례`,
+      large: isS ? '1292000' : '926000',
+      largeDrain: isS ? '676000' : '',
+      medium: isS ? '694000' : '744000',
+      dailyUse:'196', peakRate: isS ? '1.17' : '1.0', avgPerson:'2.38',
+      mediumPipes: isS ? {} : {...DEFAULT_MEDIUM},
+      smallPipes:  isS ? {} : {...DEFAULT_SMALL},
+      homePipes:   isS ? {...DEFAULT_SEOUL_HOME} : {},
+      nonHomePipes:isS ? {...DEFAULT_SEOUL_NON}  : {},
     }]});
     setSelCity(city.trim());
   };
@@ -1898,58 +1921,135 @@ function WaterRateSettings({ waterRates, setWaterRates, thStyle, tdStyle }) {
           <div style={{ marginBottom:'16px' }}>
             <div style={{ fontWeight:'bold', fontSize:'13px', color:'#1565c0', marginBottom:'8px' }}>{activeYear}년 {activeCity} 기준값</div>
             <div style={{ display:'flex', gap:'10px', flexWrap:'wrap' }}>
-              {[
-                {key:'large',       label:'대규모 단위사업비(원/㎥)', val:activeEntry.large||'926000'},
-                {key:'medium',      label:'중규모 단위사업비(원/㎥)', val:activeEntry.medium||'744000'},
-                {key:'dailyUse',    label:'1인1일 최대급수량(L)',     val:activeEntry.dailyUse||'196'},
-                {key:'peakRate',    label:'첨두부하율',               val:activeEntry.peakRate||'1.0'},
-                {key:'avgPerson',   label:'평균가구원수',             val:activeEntry.avgPerson||'2.38'},
-              ].map(({key,label,val})=>(
-                <div key={key}>
-                  <label style={{ fontSize:'11px', color:'#555', display:'block', marginBottom:'3px' }}>{label}</label>
-                  <input value={val} onChange={e=>updateEntry(key,e.target.value)}
-                    style={{width:'120px',padding:'5px 8px',border:'1px solid #1565c0',borderRadius:'3px',fontSize:'12px',textAlign:'right',color:'#1565c0',fontWeight:'bold'}}/>
+              <div>
+                <label style={{ fontSize:'11px', color:'#555', display:'block', marginBottom:'3px' }}>
+                  {isSeoul ? '대규모 단위사업비(배수미설치, 원/㎥)' : '대규모 단위사업비(원/㎥)'}
+                </label>
+                <input value={activeEntry.large||''} onChange={e=>updateEntry('large',e.target.value)}
+                  style={{width:'160px',padding:'5px 8px',border:'1px solid #1565c0',borderRadius:'3px',fontSize:'12px',textAlign:'right',color:'#1565c0',fontWeight:'bold'}}/>
+              </div>
+              {isSeoul && (
+                <div>
+                  <label style={{ fontSize:'11px', color:'#c62828', display:'block', marginBottom:'3px' }}>대규모 단위사업비(배수설치, 원/㎥)</label>
+                  <input value={activeEntry.largeDrain||''} onChange={e=>updateEntry('largeDrain',e.target.value)}
+                    style={{width:'160px',padding:'5px 8px',border:'1px solid #c62828',borderRadius:'3px',fontSize:'12px',textAlign:'right',color:'#c62828',fontWeight:'bold'}}/>
                 </div>
-              ))}
+              )}
+              <div>
+                <label style={{ fontSize:'11px', color:'#555', display:'block', marginBottom:'3px' }}>
+                  {isSeoul ? '대규모이외 단위사업비(원/㎥)' : '중규모 단위사업비(원/㎥)'}
+                </label>
+                <input value={activeEntry.medium||''} onChange={e=>updateEntry('medium',e.target.value)}
+                  style={{width:'160px',padding:'5px 8px',border:'1px solid #1565c0',borderRadius:'3px',fontSize:'12px',textAlign:'right',color:'#1565c0',fontWeight:'bold'}}/>
+              </div>
+              {!isSeoul && (
+                <>
+                  <div>
+                    <label style={{ fontSize:'11px', color:'#555', display:'block', marginBottom:'3px' }}>1인1일 최대급수량(L)</label>
+                    <input value={activeEntry.dailyUse||''} onChange={e=>updateEntry('dailyUse',e.target.value)}
+                      style={{width:'100px',padding:'5px 8px',border:'1px solid #1565c0',borderRadius:'3px',fontSize:'12px',textAlign:'right',color:'#1565c0',fontWeight:'bold'}}/>
+                  </div>
+                  <div>
+                    <label style={{ fontSize:'11px', color:'#555', display:'block', marginBottom:'3px' }}>평균가구원수</label>
+                    <input value={activeEntry.avgPerson||''} onChange={e=>updateEntry('avgPerson',e.target.value)}
+                      style={{width:'100px',padding:'5px 8px',border:'1px solid #1565c0',borderRadius:'3px',fontSize:'12px',textAlign:'right',color:'#1565c0',fontWeight:'bold'}}/>
+                  </div>
+                </>
+              )}
+              <div>
+                <label style={{ fontSize:'11px', color:'#555', display:'block', marginBottom:'3px' }}>첨두부하율</label>
+                <input value={activeEntry.peakRate||''} onChange={e=>updateEntry('peakRate',e.target.value)}
+                  style={{width:'100px',padding:'5px 8px',border:'1px solid #1565c0',borderRadius:'3px',fontSize:'12px',textAlign:'right',color:'#1565c0',fontWeight:'bold'}}/>
+              </div>
             </div>
           </div>
 
-          {/* 중규모 구경별 */}
-          <div style={{ marginBottom:'16px' }}>
-            <div style={{ fontWeight:'bold', fontSize:'13px', color:'#1565c0', marginBottom:'8px' }}>중규모 구경별 원인자부담금 (천원)</div>
-            <div style={{ overflowX:'auto' }}>
-              <table style={{ borderCollapse:'collapse', fontSize:'12px' }}>
-                <thead><tr style={{ backgroundColor:'#1565c0', color:'white' }}>
-                  <td style={{ padding:'5px 8px', fontWeight:'bold' }}>구분</td>
-                  {PIPE_SIZES.map(s=><th key={s} style={{padding:'5px 8px',whiteSpace:'nowrap'}}>{s}㎜</th>)}
-                </tr></thead>
-                <tbody><tr style={{ backgroundColor:'white' }}>
-                  <td style={{ padding:'4px 8px', fontWeight:'bold', fontSize:'11px', color:'#555', whiteSpace:'nowrap' }}>일반용(천원)</td>
-                  {PIPE_SIZES.map(s=>(
-                    <td key={s} style={{padding:'3px 4px'}}>
-                      <input value={medPipes[s]||''} onChange={e=>updateMedPipe(s,e.target.value)}
-                        style={{width:'70px',padding:'3px 5px',border:'1px solid #90caf9',borderRadius:'3px',fontSize:'11px',textAlign:'right'}}/>
-                    </td>
+          {/* 부산: 중규모 구경별 부담금 테이블 */}
+          {!isSeoul && (
+            <>
+              <div style={{ marginBottom:'16px' }}>
+                <div style={{ fontWeight:'bold', fontSize:'13px', color:'#1565c0', marginBottom:'8px' }}>중규모 구경별 원인자부담금 (천원)</div>
+                <div style={{ overflowX:'auto' }}>
+                  <table style={{ borderCollapse:'collapse', fontSize:'12px' }}>
+                    <thead><tr style={{ backgroundColor:'#1565c0', color:'white' }}>
+                      <td style={{ padding:'5px 8px', fontWeight:'bold' }}>구분</td>
+                      {PIPE_SIZES.map(s=><th key={s} style={{padding:'5px 8px',whiteSpace:'nowrap'}}>{s}㎜</th>)}
+                    </tr></thead>
+                    <tbody><tr style={{ backgroundColor:'white' }}>
+                      <td style={{ padding:'4px 8px', fontWeight:'bold', fontSize:'11px', color:'#555', whiteSpace:'nowrap' }}>일반용(천원)</td>
+                      {PIPE_SIZES.map(s=>(
+                        <td key={s} style={{padding:'3px 4px'}}>
+                          <input value={medPipes[s]||''} onChange={e=>updateMedPipe(s,e.target.value)}
+                            style={{width:'70px',padding:'3px 5px',border:'1px solid #90caf9',borderRadius:'3px',fontSize:'11px',textAlign:'right'}}/>
+                        </td>
+                      ))}
+                    </tr></tbody>
+                  </table>
+                </div>
+              </div>
+              <div>
+                <div style={{ fontWeight:'bold', fontSize:'13px', color:'#7b1fa2', marginBottom:'8px' }}>소규모 구경별 원인자부담금 50㎜이하 (천원)</div>
+                <div style={{ display:'flex', gap:'12px', flexWrap:'wrap' }}>
+                  {SMALL_SIZES.map(s=>(
+                    <div key={s} style={{ display:'flex', alignItems:'center', gap:'4px' }}>
+                      <span style={{ fontSize:'12px', fontWeight:'bold', color:'#555', whiteSpace:'nowrap' }}>{s}㎜</span>
+                      <input value={smPipes[s]||''} onChange={e=>updateSmPipe(s,e.target.value)}
+                        style={{width:'70px',padding:'4px 6px',border:'1px solid #ce93d8',borderRadius:'3px',fontSize:'12px',textAlign:'right'}}/>
+                      <span style={{ fontSize:'11px', color:'#888' }}>천원</span>
+                    </div>
                   ))}
-                </tr></tbody>
-              </table>
-            </div>
-          </div>
-
-          {/* 소규모 구경별 */}
-          <div>
-            <div style={{ fontWeight:'bold', fontSize:'13px', color:'#7b1fa2', marginBottom:'8px' }}>소규모 구경별 원인자부담금 50㎜이하 (천원)</div>
-            <div style={{ display:'flex', gap:'12px', flexWrap:'wrap' }}>
-              {SMALL_SIZES.map(s=>(
-                <div key={s} style={{ display:'flex', alignItems:'center', gap:'4px' }}>
-                  <span style={{ fontSize:'12px', fontWeight:'bold', color:'#555', whiteSpace:'nowrap' }}>{s}㎜</span>
-                  <input value={smPipes[s]||''} onChange={e=>updateSmPipe(s,e.target.value)}
-                    style={{width:'70px',padding:'4px 6px',border:'1px solid #ce93d8',borderRadius:'3px',fontSize:'12px',textAlign:'right'}}/>
-                  <span style={{ fontSize:'11px', color:'#888' }}>천원</span>
                 </div>
-              ))}
-            </div>
-          </div>
+              </div>
+            </>
+          )}
+
+          {/* 서울: 가정용/비가정용 사용량 테이블 */}
+          {isSeoul && (
+            <>
+              <div style={{ marginBottom:'16px' }}>
+                <div style={{ fontWeight:'bold', fontSize:'13px', color:'#1565c0', marginBottom:'4px' }}>가정용 구경별 평균 수돗물 사용량 (㎥/일)</div>
+                <div style={{ fontSize:'11px', color:'#888', marginBottom:'8px' }}>※ 2040 서울 수도정비기본계획 기준</div>
+                <div style={{ overflowX:'auto' }}>
+                  <table style={{ borderCollapse:'collapse', fontSize:'12px' }}>
+                    <thead><tr style={{ backgroundColor:'#1565c0', color:'white' }}>
+                      <td style={{ padding:'5px 8px', fontWeight:'bold' }}>구분</td>
+                      {PIPE_SIZES.map(s=><th key={s} style={{padding:'5px 8px',whiteSpace:'nowrap'}}>{s}㎜</th>)}
+                    </tr></thead>
+                    <tbody><tr style={{ backgroundColor:'white' }}>
+                      <td style={{ padding:'4px 8px', fontWeight:'bold', fontSize:'11px', color:'#555', whiteSpace:'nowrap' }}>사용량(㎥/일)</td>
+                      {PIPE_SIZES.map(s=>(
+                        <td key={s} style={{padding:'3px 4px'}}>
+                          <input value={(activeEntry.homePipes||{})[s]||''} onChange={e=>updateHomePipe(s,e.target.value)}
+                            style={{width:'70px',padding:'3px 5px',border:'1px solid #90caf9',borderRadius:'3px',fontSize:'11px',textAlign:'right'}}/>
+                        </td>
+                      ))}
+                    </tr></tbody>
+                  </table>
+                </div>
+              </div>
+              <div>
+                <div style={{ fontWeight:'bold', fontSize:'13px', color:'#e65100', marginBottom:'4px' }}>비가정용 구경별 평균 수돗물 사용량 (㎥/일)</div>
+                <div style={{ fontSize:'11px', color:'#888', marginBottom:'8px' }}>※ 일반용·공공용·욕탕용 포함</div>
+                <div style={{ overflowX:'auto' }}>
+                  <table style={{ borderCollapse:'collapse', fontSize:'12px' }}>
+                    <thead><tr style={{ backgroundColor:'#e65100', color:'white' }}>
+                      <td style={{ padding:'5px 8px', fontWeight:'bold' }}>구분</td>
+                      {PIPE_SIZES.map(s=><th key={s} style={{padding:'5px 8px',whiteSpace:'nowrap'}}>{s}㎜</th>)}
+                    </tr></thead>
+                    <tbody><tr style={{ backgroundColor:'white' }}>
+                      <td style={{ padding:'4px 8px', fontWeight:'bold', fontSize:'11px', color:'#555', whiteSpace:'nowrap' }}>사용량(㎥/일)</td>
+                      {PIPE_SIZES.map(s=>(
+                        <td key={s} style={{padding:'3px 4px'}}>
+                          <input value={(activeEntry.nonHomePipes||{})[s]||''} onChange={e=>updateNonHomePipe(s,e.target.value)}
+                            style={{width:'70px',padding:'3px 5px',border:'1px solid #ffcc80',borderRadius:'3px',fontSize:'11px',textAlign:'right'}}/>
+                        </td>
+                      ))}
+                    </tr></tbody>
+                  </table>
+                </div>
+              </div>
+            </>
+          )}
         </div>
       ) : (
         <div style={{ textAlign:'center', color:'#aaa', padding:'40px' }}>+ 연도/지역 추가 버튼으로 추가하세요</div>
@@ -3982,12 +4082,27 @@ function GasModal({ onClose, onApply, archData, incomeData, settingsData, data, 
 // ─────────────────────────────────────────────
 const WATER_PIPE_SIZES_MEDIUM = ['15','20','25','32','40','50','80','100','150','200','250','300'];
 const WATER_PIPE_SIZES_SMALL  = ['15','20','25','32','40','50'];
-const WATER_PIPE_USE = {
+
+// 부산 비가정용 구경별 사용량 (㎥/일) — 일최대사용량
+const WATER_PIPE_USE_BUSAN = {
   '15':'1.01','20':'2.24','25':'4.00','32':'8.13','40':'11.22','50':'21.82',
   '80':'53.01','100':'102.70','150':'482.93','200':'766.24','250':'1049.54','300':'3113.91'
 };
+// 서울 가정용 구경별 사용량 (㎥/일) — 평균
+const WATER_PIPE_USE_SEOUL_HOME = {
+  '15':'0.93','20':'2.81','25':'4.52','32':'7.22','40':'10.18','50':'23.28',
+  '80':'80.55','100':'151.47','150':'265.61','200':'559.79','250':'998.06','300':'1632.22'
+};
+// 서울 비가정용 구경별 사용량 (㎥/일) — 평균
+const WATER_PIPE_USE_SEOUL_NON = {
+  '15':'1.10','20':'2.85','25':'5.39','32':'9.20','40':'13.76','50':'29.73',
+  '80':'59.41','100':'126.20','150':'349.64','200':'839.15','250':'2015.27','300':'2776.27'
+};
+// 기본값 (부산 사용)
+const WATER_PIPE_USE = WATER_PIPE_USE_BUSAN;
 
-const WATER_BIZ_TYPES = [
+// 부산 사업규모 구분
+const WATER_BIZ_TYPES_BUSAN = [
   { key:'large',  label:'대규모 개발사업',
     desc:'가. 도시의 개발사업(주택법, 도시개발법 등)\n나. 산업입지 및 산업단지 조성사업\n다. 항만·공항·관광단지·특정지역 개발사업\n라. 국방·군사시설의 설치사업',
     formula:'단위사업비(총자산/시설용량) × 사업계획서 수돗물사용량' },
@@ -3998,6 +4113,19 @@ const WATER_BIZ_TYPES = [
     desc:'• 기준: 1일 수돗물 사용량 20㎥ 미만인 사업\n• 80㎜ 이상: 중규모 구경별 원인자부담금 적용\n• 50㎜ 이하: 별도 소규모 구경별 원인자부담금 적용\n※ 공동주택/오피스텔 30세대 미만: 15㎜ 구경 적용, 세대별 산정',
     formula:'구경별 고정금액 적용' },
 ];
+
+// 서울 사업규모 구분
+const WATER_BIZ_TYPES_SEOUL = [
+  { key:'large',  label:'대규모 개발사업 (300세대 이상)',
+    desc:'• 주택단지 및 산업시설 등 (급수조례 제3조제1항제1호)\n• 단위사업비: 배수시설 미설치 1,292,000원/㎥ / 배수시설 설치 676,000원/㎥',
+    formula:'단위사업비 × 수돗물사용량(사업계획서 기준)' },
+  { key:'medium', label:'대규모 이외 (300세대 미만)',
+    desc:'• 대규모 주택단지 및 산업시설 이외 (급수조례 제3조제1항제2호)\n• 단위사업비: 694,000원/㎥ (순자산 기준)',
+    formula:'주거: 구경별 가정용 사용량 기준 / 비주거: 구경별 비가정용 사용량 기준' },
+];
+
+// 사용할 BIZ_TYPES (지역별 동적 선택)
+const WATER_BIZ_TYPES = WATER_BIZ_TYPES_BUSAN;
 
 function WaterModal({ onClose, onApply, archData, incomeData, settingsData, data, onChange }) {
   const d = data || {};
@@ -4011,47 +4139,67 @@ function WaterModal({ onClose, onApply, archData, incomeData, settingsData, data
   const cities     = entries.filter(e=>e.year===selYear).map(e=>e.city);
   const selCity    = d.waterCity || cities[0] || '부산';
   const unitData   = entries.find(e=>e.year===selYear && e.city===selCity) || entries.find(e=>e.year===selYear) || {};
-  const largeUnit  = parseFloat(unitData.large||'926000');
-  const mediumUnit = parseFloat(unitData.medium||'744000');
+  const isSeoul    = selCity === '서울';
+  const largeUnit  = parseFloat(unitData.large || (isSeoul ? '1292000' : '926000'));
+  const largeDrainUnit = parseFloat(unitData.largeDrain || '676000'); // 서울 배수설치
+  const mediumUnit = parseFloat(unitData.medium || (isSeoul ? '694000' : '744000'));
   const dailyUse   = parseFloat(unitData.dailyUse||'196');
-  const peakRate   = parseFloat(unitData.peakRate||'1.0');
+  const peakRate   = parseFloat(unitData.peakRate||(isSeoul?'1.17':'1.0'));
   const avgPerson  = parseFloat(unitData.avgPerson||'2.38');
   const ordinance  = unitData.ordinance || '상수도 원인자부담금 징수 조례';
   const DEFAULT_MED = {'15':'749','20':'1663','25':'2972','32':'6050','40':'8349','50':'16234','80':'39437','100':'76411','150':'359302','200':'570082','250':'780861','300':'2316751'};
   const DEFAULT_SM  = {'15':'310','20':'838','25':'1490','32':'2700','40':'4559','50':'7266'};
-  const medPipes   = unitData.mediumPipes || DEFAULT_MED;
-  const smPipes    = unitData.smallPipes  || DEFAULT_SM;
+  const medPipes    = unitData.mediumPipes || DEFAULT_MED;
+  const smPipes     = unitData.smallPipes  || DEFAULT_SM;
+  const homePipes   = unitData.homePipes   || WATER_PIPE_USE_SEOUL_HOME;
+  const nonHomePipes= unitData.nonHomePipes|| WATER_PIPE_USE_SEOUL_NON;
+
+  // 지역별 사업규모 타입 목록
+  const bizTypes = isSeoul ? WATER_BIZ_TYPES_SEOUL : WATER_BIZ_TYPES_BUSAN;
 
   // 수입탭 연동
-  const aptRows   = incomeData?.aptRows   || [];
-  const offiRows  = incomeData?.offiRows  || [];
-  const aptUnits  = aptRows.reduce((s,r)  => s+(parseFloat(String(r.units||'').replace(/,/g,''))||0), 0);
-  const offiUnits = offiRows.reduce((s,r) => s+(parseFloat(String(r.units||'').replace(/,/g,''))||0), 0);
-  const resUnits  = aptUnits + offiUnits;
+  const aptRows    = incomeData?.aptRows    || [];
+  const offiRows   = incomeData?.offiRows   || [];
+  const publicRows = incomeData?.publicRows || [];
+  const aptUnits   = aptRows.reduce((s,r)    => s+(parseFloat(String(r.units||'').replace(/,/g,''))||0), 0);
+  const offiUnits  = offiRows.reduce((s,r)   => s+(parseFloat(String(r.units||'').replace(/,/g,''))||0), 0);
+  const publicUnits= publicRows.reduce((s,r) => s+(parseFloat(String(r.units||'').replace(/,/g,''))||0), 0);
+  const resUnits   = aptUnits + offiUnits + publicUnits;
 
   // 선택값
-  const bizType       = d.bizType       || 'medium';
-  const resMethod     = d.resMethod     || '1';   // 1=세대당고정, 2=단위사업비
-  const nonResMethod  = d.nonResMethod  || '1';   // 1=구경별고정, 2=단위사업비
-  const pipeSizeKey   = d.pipeSizeKey   || '40';
-  const selectedBiz   = WATER_BIZI_TYPES_MAP[bizType] || WATER_BIZ_TYPES[1];
+  const bizType      = d.bizType      || 'medium';
+  const drainType    = d.drainType    || 'nodrain'; // 서울 대규모: nodrain=배수미설치, drain=배수설치
+  const resMethod    = d.resMethod    || '1';   // 1=세대당고정(부산), 2=단위사업비×사용량
+  const nonResMethod = d.nonResMethod || '1';   // 1=구경별고정, 2=단위사업비×사용량
+  const pipeSizeKey  = d.pipeSizeKey  || '40';
 
-  // 주거 계산
-  const resFee1 = 349 * resUnits;  // 방식①
-  const resUsePerHH = (dailyUse/1000) * avgPerson * peakRate * 0.47; // 1세대당 사용량(㎥/일) 근사
-  const resFee2 = Math.round(mediumUnit/1000 * resUsePerHH * resUnits); // 방식②
-  const resFeeAmt = resMethod==='1' ? resFee1 : resFee2;
-
-  // 비주거 계산 (중규모)
-  const pipeUseM3 = parseFloat(WATER_PIPE_USE[pipeSizeKey]||'11.22');
-  const nonResFee1 = parseFloat(medPipes[pipeSizeKey]||'8349');   // 방식① 구경별 고정
-  const nonResFee2 = Math.round(mediumUnit/1000 * pipeUseM3);      // 방식②
-  const nonResFeeAmt = nonResMethod==='1' ? nonResFee1 : nonResFee2;
-
-  // 소규모 구경별
+  // ── 부산 계산 ──
+  const resFee1 = 349 * resUnits;  // 부산 방식①
+  const resUsePerHH = (dailyUse/1000) * avgPerson * peakRate * 0.47;
+  const resFee2_busan = Math.round(mediumUnit/1000 * resUsePerHH * resUnits);
+  const pipeUseM3_busan = parseFloat(WATER_PIPE_USE_BUSAN[pipeSizeKey]||'11.22');
+  const nonResFee1_busan = parseFloat(medPipes[pipeSizeKey]||'8349');
+  const nonResFee2_busan = Math.round(mediumUnit/1000 * pipeUseM3_busan);
   const smFee = parseFloat(smPipes[pipeSizeKey]||'4559');
 
-  const totalFee = (bizType==='small') ? smFee : (resFeeAmt + nonResFeeAmt);
+  // ── 서울 계산 ──
+  const seoulLargeUnit = drainType === 'drain' ? largeDrainUnit : largeUnit;
+  // 서울 주거 (가정용 구경별 사용량 기준)
+  const homePipeUse   = parseFloat(homePipes[pipeSizeKey]||'10.18');
+  const resFee_seoul  = Math.round(mediumUnit/1000 * homePipeUse * resUnits);
+  // 서울 비주거 (비가정용 구경별 사용량 기준)
+  const nonHomePipeUse   = parseFloat(nonHomePipes[pipeSizeKey]||'13.76');
+  const nonResFee_seoul  = Math.round(mediumUnit/1000 * nonHomePipeUse);
+
+  // ── 최종 선택값 ──
+  const resFeeAmt    = isSeoul
+    ? resFee_seoul
+    : (resMethod==='1' ? resFee1 : resFee2_busan);
+  const nonResFeeAmt = isSeoul
+    ? (nonResMethod==='1' ? nonResFee_seoul : Math.round(mediumUnit/1000 * nonHomePipeUse))
+    : (nonResMethod==='1' ? nonResFee1_busan : nonResFee2_busan);
+
+  const totalFee = bizType==='small' ? smFee : (resFeeAmt + nonResFeeAmt);
 
   const boxStyle = { border:'1px solid #e0e0e0', borderRadius:'8px', padding:'14px 18px', marginBottom:'14px' };
   const stepHd = (n, t, color='#1565c0') => (
@@ -4081,7 +4229,7 @@ function WaterModal({ onClose, onApply, archData, incomeData, settingsData, data
           <div style={{ fontSize:'12px', color:'#555' }}>사용승인 전</div>
         </div>
 
-        {/* 기준연도 선택 */}
+        {/* 기준연도/지역 선택 */}
         <div style={{ ...boxStyle, backgroundColor:'#f8f9fa' }}>
           <div style={{ display:'flex', gap:'16px', alignItems:'center', flexWrap:'wrap' }}>
             <div>
@@ -4093,15 +4241,25 @@ function WaterModal({ onClose, onApply, archData, incomeData, settingsData, data
             </div>
             <div>
               <label style={{ fontSize:'12px', fontWeight:'bold', color:'#555', display:'block', marginBottom:'4px' }}>지역</label>
-              <select value={selCity} onChange={e => update('waterCity', e.target.value)}
+              <select value={selCity} onChange={e => { update('waterCity', e.target.value); update('bizType', 'medium'); }}
                 style={{ padding:'6px 10px', border:'1px solid #1565c0', borderRadius:'4px', fontSize:'13px', color:'#1565c0', fontWeight:'bold' }}>
                 {cities.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
             </div>
-            <div style={{ fontSize:'12px', color:'#555', lineHeight:'1.8' }}>
-              <div>대규모 단위사업비: <strong style={{ color:'#1565c0' }}>{fmtN(largeUnit)}원/㎥</strong></div>
-              <div>중규모 단위사업비: <strong style={{ color:'#1565c0' }}>{fmtN(mediumUnit)}원/㎥</strong></div>
-              <div>1인1일 최대급수량: <strong style={{ color:'#1565c0' }}>{dailyUse}L</strong> | 첨두부하율: <strong style={{ color:'#1565c0' }}>{peakRate}</strong></div>
+            <div style={{ fontSize:'12px', color:'#555', lineHeight:'1.9' }}>
+              {isSeoul ? (
+                <>
+                  <div>대규모(배수미설치): <strong style={{ color:'#1565c0' }}>{fmtN(largeUnit)}원/㎥</strong></div>
+                  <div>대규모(배수설치): <strong style={{ color:'#c62828' }}>{fmtN(largeDrainUnit)}원/㎥</strong></div>
+                  <div>대규모이외: <strong style={{ color:'#1565c0' }}>{fmtN(mediumUnit)}원/㎥</strong> | 첨두부하율: <strong style={{ color:'#1565c0' }}>{peakRate}</strong></div>
+                </>
+              ) : (
+                <>
+                  <div>대규모 단위사업비: <strong style={{ color:'#1565c0' }}>{fmtN(largeUnit)}원/㎥</strong></div>
+                  <div>중규모 단위사업비: <strong style={{ color:'#1565c0' }}>{fmtN(mediumUnit)}원/㎥</strong></div>
+                  <div>1인1일 최대급수량: <strong style={{ color:'#1565c0' }}>{dailyUse}L</strong> | 첨두부하율: <strong style={{ color:'#1565c0' }}>{peakRate}</strong></div>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -4109,7 +4267,7 @@ function WaterModal({ onClose, onApply, archData, incomeData, settingsData, data
         {/* STEP 1 - 사업규모 선택 */}
         <div style={boxStyle}>
           {stepHd('1', '사업규모 선택')}
-          {WATER_BIZ_TYPES.map(bt => (
+          {bizTypes.map(bt => (
             <div key={bt.key} style={{ marginBottom:'10px' }}>
               <label style={{ display:'flex', alignItems:'flex-start', gap:'10px', cursor:'pointer' }}>
                 <input type="radio" name="waterBizType" value={bt.key} checked={bizType===bt.key} onChange={() => update('bizType', bt.key)} style={{ marginTop:'3px', flexShrink:0 }} />
@@ -4125,79 +4283,114 @@ function WaterModal({ onClose, onApply, archData, incomeData, settingsData, data
               </label>
             </div>
           ))}
+          {/* 서울 대규모: 배수시설 설치 여부 */}
+          {isSeoul && bizType === 'large' && (
+            <div style={{ marginTop:'10px', padding:'10px 14px', backgroundColor:'#fff8e1', borderRadius:'6px', border:'1px solid #ffe082' }}>
+              <div style={{ fontSize:'12px', fontWeight:'bold', color:'#e65100', marginBottom:'8px' }}>배수시설 설치 여부</div>
+              {[
+                { val:'nodrain', label:'배수시설 미설치', unit: largeUnit,      desc:'단위사업비 1,292,000원/㎥ 적용' },
+                { val:'drain',   label:'배수시설 설치',   unit: largeDrainUnit, desc:'단위사업비 676,000원/㎥ 적용' },
+              ].map(dt => (
+                <label key={dt.val} style={{ display:'flex', alignItems:'center', gap:'8px', marginBottom:'6px', cursor:'pointer' }}>
+                  <input type="radio" name="drainType" value={dt.val} checked={drainType===dt.val} onChange={() => update('drainType', dt.val)} />
+                  <div>
+                    <span style={{ fontWeight:'bold', fontSize:'12px', color: drainType===dt.val?'#e65100':'#555' }}>{dt.label}</span>
+                    <span style={{ fontSize:'11px', color:'#888', marginLeft:'8px' }}>{dt.desc}</span>
+                    {drainType===dt.val && <div style={{ fontSize:'12px', fontWeight:'bold', color:'#e65100' }}>→ 적용 단위사업비: {fmtN(dt.unit)}원/㎥</div>}
+                  </div>
+                </label>
+              ))}
+            </div>
+          )}
         </div>
 
-        {/* STEP 2 - 주거시설 (중규모) */}
+        {/* STEP 2 - 주거시설 */}
         {bizType === 'medium' && (
           <div style={boxStyle}>
-            {stepHd('2', '주거시설 — 공동주택 / 오피스텔')}
+            {stepHd('2', isSeoul ? '주거시설 — 공동주택 / 오피스텔 / 공공주택' : '주거시설 — 공동주택 / 오피스텔')}
             <div style={{ fontSize:'11px', color:'#2980b9', marginBottom:'10px', fontWeight:'bold' }}>
-              세대수: {fmtN(resUnits)}세대 (공동주택 {fmtN(aptUnits)} + 오피스텔 {fmtN(offiUnits)}) — 수입탭 자동연동
+              세대수: {fmtN(resUnits)}세대 (공동주택 {fmtN(aptUnits)} + 오피스텔 {fmtN(offiUnits)}{publicUnits > 0 ? ` + 공공주택 ${fmtN(publicUnits)}` : ''}) — 수입탭 자동연동
             </div>
-            {[
-              { val:'1', label:'① 세대당 고정 (349천원/세대)', result: resFee1,
-                desc: `349천원 × ${fmtN(resUnits)}세대 = ${fmtN(resFee1)}천원` },
-              { val:'2', label:'② 단위사업비 × 사용량',        result: resFee2,
-                desc: `744천원/㎥ × 0.470㎥/세대 × ${fmtN(resUnits)}세대 = ${fmtN(resFee2)}천원` },
-            ].map(m => (
-              <label key={m.val} style={{ display:'flex', alignItems:'flex-start', gap:'8px', marginBottom:'8px', cursor:'pointer' }}>
-                <input type="radio" name="resMethod" value={m.val} checked={resMethod===m.val} onChange={() => update('resMethod', m.val)} style={{ marginTop:'3px' }} />
-                <div>
-                  <div style={{ fontWeight:'bold', fontSize:'12px', color: resMethod===m.val?'#1565c0':'#555' }}>{m.label}</div>
-                  <div style={{ fontSize:'11px', color:'#888', marginTop:'2px' }}>{m.desc}</div>
-                  {resMethod===m.val && (
-                    <div style={{ fontSize:'13px', fontWeight:'bold', color:'#1565c0', marginTop:'4px' }}>→ {fmtN(m.result)} 천원</div>
-                  )}
-                </div>
-              </label>
-            ))}
-          </div>
-        )}
-
-        {/* STEP 3 - 비주거시설 (중규모) */}
-        {bizType === 'medium' && (
-          <div style={boxStyle}>
-            {stepHd('3', '비주거시설 — 근린상가 (일반건축물)')}
-
             {/* 계량기 구경 선택 */}
             <div style={{ marginBottom:'12px' }}>
               <label style={{ fontSize:'12px', fontWeight:'bold', color:'#555', display:'block', marginBottom:'6px' }}>계량기 구경 선택</label>
               <select value={pipeSizeKey} onChange={e => update('pipeSizeKey', e.target.value)}
                 style={{ padding:'6px 10px', border:'1px solid #1565c0', borderRadius:'4px', fontSize:'13px', color:'#1565c0', fontWeight:'bold' }}>
                 {WATER_PIPE_SIZES_MEDIUM.map(s => (
-                  <option key={s} value={s}>{s}㎜ (일최대사용량: {WATER_PIPE_USE[s]}㎥/일)</option>
+                  <option key={s} value={s}>
+                    {s}㎜ (가정용: {isSeoul ? (homePipes[s]||'-') : ((dailyUse/1000*avgPerson*peakRate*0.47).toFixed(3))}㎥/일)
+                  </option>
                 ))}
               </select>
             </div>
+            {isSeoul ? (
+              <div style={{ backgroundColor:'#e3f2fd', borderRadius:'6px', padding:'10px 14px' }}>
+                <div style={{ fontSize:'12px', fontWeight:'bold', color:'#1565c0', marginBottom:'4px' }}>구경별 가정용 사용량 기준</div>
+                <div style={{ fontSize:'11px', color:'#555' }}>
+                  {fmtN(mediumUnit)}원/㎥ ÷ 1,000 × {homePipes[pipeSizeKey]||'-'}㎥/일 × {fmtN(resUnits)}세대
+                </div>
+                <div style={{ fontSize:'14px', fontWeight:'bold', color:'#1565c0', marginTop:'6px' }}>→ {fmtN(resFee_seoul)} 천원</div>
+              </div>
+            ) : (
+              [
+                { val:'1', label:'① 세대당 고정 (349천원/세대)', result: resFee1,
+                  desc: `349천원 × ${fmtN(resUnits)}세대 = ${fmtN(resFee1)}천원` },
+                { val:'2', label:'② 단위사업비 × 사용량',
+                  result: resFee2_busan,
+                  desc: `${fmtN(mediumUnit)}원/㎥ ÷ 1,000 × ${resUsePerHH.toFixed(3)}㎥/세대 × ${fmtN(resUnits)}세대 = ${fmtN(resFee2_busan)}천원` },
+              ].map(m => (
+                <label key={m.val} style={{ display:'flex', alignItems:'flex-start', gap:'8px', marginBottom:'8px', cursor:'pointer' }}>
+                  <input type="radio" name="resMethod" value={m.val} checked={resMethod===m.val} onChange={() => update('resMethod', m.val)} style={{ marginTop:'3px' }} />
+                  <div>
+                    <div style={{ fontWeight:'bold', fontSize:'12px', color: resMethod===m.val?'#1565c0':'#555' }}>{m.label}</div>
+                    <div style={{ fontSize:'11px', color:'#888', marginTop:'2px' }}>{m.desc}</div>
+                    {resMethod===m.val && <div style={{ fontSize:'13px', fontWeight:'bold', color:'#1565c0', marginTop:'4px' }}>→ {fmtN(m.result)} 천원</div>}
+                  </div>
+                </label>
+              ))
+            )}
+          </div>
+        )}
 
-            {/* 중규모 구경별 테이블 */}
+        {/* STEP 3 - 비주거시설 */}
+        {bizType === 'medium' && (
+          <div style={boxStyle}>
+            {stepHd('3', '비주거시설 — 근린상가 (일반건축물)')}
+            <div style={{ marginBottom:'12px' }}>
+              <label style={{ fontSize:'12px', fontWeight:'bold', color:'#555', display:'block', marginBottom:'6px' }}>계량기 구경 선택</label>
+              <select value={pipeSizeKey} onChange={e => update('pipeSizeKey', e.target.value)}
+                style={{ padding:'6px 10px', border:'1px solid #1565c0', borderRadius:'4px', fontSize:'13px', color:'#1565c0', fontWeight:'bold' }}>
+                {WATER_PIPE_SIZES_MEDIUM.map(s => (
+                  <option key={s} value={s}>
+                    {s}㎜ ({isSeoul ? '비가정용' : '일최대사용량'}: {isSeoul ? (nonHomePipes[s]||'-') : WATER_PIPE_USE_BUSAN[s]}㎥/일)
+                  </option>
+                ))}
+              </select>
+            </div>
             <div style={{ overflowX:'auto', marginBottom:'12px' }}>
               <table style={{ borderCollapse:'collapse', fontSize:'11px' }}>
                 <thead>
                   <tr style={{ backgroundColor:'#1565c0', color:'white' }}>
                     <th style={{ padding:'5px 8px' }}>구분</th>
                     {WATER_PIPE_SIZES_MEDIUM.map(s => (
-                      <th key={s} style={{ padding:'5px 8px', whiteSpace:'nowrap',
-                        backgroundColor: s===pipeSizeKey ? '#0d47a1' : '#1565c0' }}>
-                        {s}㎜
-                      </th>
+                      <th key={s} style={{ padding:'5px 8px', whiteSpace:'nowrap', backgroundColor: s===pipeSizeKey ? '#0d47a1' : '#1565c0' }}>{s}㎜</th>
                     ))}
                   </tr>
-                  <tr style={{ backgroundColor:'#e3f2fd' }}>
-                    <td style={{ padding:'4px 8px', fontWeight:'bold', fontSize:'11px' }}>부담금(천원)</td>
-                    {WATER_PIPE_SIZES_MEDIUM.map(s => (
-                      <td key={s} style={{ padding:'4px 8px', textAlign:'right',
-                        fontWeight: s===pipeSizeKey?'bold':'normal',
-                        color: s===pipeSizeKey?'#1565c0':'#333' }}>
-                        {formatNumber(medPipes[s]||'')}
-                      </td>
-                    ))}
-                  </tr>
+                  {!isSeoul && (
+                    <tr style={{ backgroundColor:'#e3f2fd' }}>
+                      <td style={{ padding:'4px 8px', fontWeight:'bold', fontSize:'11px' }}>부담금(천원)</td>
+                      {WATER_PIPE_SIZES_MEDIUM.map(s => (
+                        <td key={s} style={{ padding:'4px 8px', textAlign:'right', fontWeight: s===pipeSizeKey?'bold':'normal', color: s===pipeSizeKey?'#1565c0':'#333' }}>
+                          {formatNumber(medPipes[s]||'')}
+                        </td>
+                      ))}
+                    </tr>
+                  )}
                   <tr style={{ backgroundColor:'#f8f9fa' }}>
-                    <td style={{ padding:'4px 8px', fontSize:'11px', color:'#888' }}>사용량(㎥/일)</td>
+                    <td style={{ padding:'4px 8px', fontSize:'11px', color:'#888' }}>{isSeoul ? '비가정용(㎥/일)' : '사용량(㎥/일)'}</td>
                     {WATER_PIPE_SIZES_MEDIUM.map(s => (
                       <td key={s} style={{ padding:'4px 8px', textAlign:'right', fontSize:'11px', color:'#888' }}>
-                        {WATER_PIPE_USE[s]}
+                        {isSeoul ? (nonHomePipes[s]||'-') : WATER_PIPE_USE_BUSAN[s]}
                       </td>
                     ))}
                   </tr>
@@ -4205,20 +4398,23 @@ function WaterModal({ onClose, onApply, archData, incomeData, settingsData, data
               </table>
             </div>
 
+            {/* 비주거 방식 선택 */}
             {[
-              { val:'1', label:`① 구경별 고정 (${pipeSizeKey}㎜)`, result: nonResFee1,
-                desc: `${pipeSizeKey}㎜ 구경 고정금액 = ${fmtN(nonResFee1)}천원 (사용량 ${pipeUseM3}㎥/일)` },
-              { val:'2', label:'② 단위사업비 × 사용량', result: nonResFee2,
-                desc: `744천원/㎥ × ${pipeUseM3}㎥/일 = ${fmtN(nonResFee2)}천원` },
+              { val:'1', label:'① 구경별 고정', result: nonResFee1_busan,
+                desc: isSeoul
+                  ? `${fmtN(mediumUnit)}원/㎥ ÷ 1,000 × ${nonHomePipes[pipeSizeKey]||'-'}㎥/일 = ${fmtN(nonResFee_seoul)}천원`
+                  : `${pipeSizeKey}㎜ 구경 고정금액 = ${fmtN(nonResFee1_busan)}천원 (사용량 ${WATER_PIPE_USE_BUSAN[pipeSizeKey]}㎥/일)` },
+              { val:'2', label:'② 단위사업비 × 사용량', result: isSeoul ? nonResFee_seoul : nonResFee2_busan,
+                desc: isSeoul
+                  ? `${fmtN(mediumUnit)}원/㎥ ÷ 1,000 × ${nonHomePipes[pipeSizeKey]||'-'}㎥/일 = ${fmtN(nonResFee_seoul)}천원`
+                  : `${fmtN(mediumUnit)}원/㎥ ÷ 1,000 × ${WATER_PIPE_USE_BUSAN[pipeSizeKey]}㎥/일 = ${fmtN(nonResFee2_busan)}천원` },
             ].map(m => (
               <label key={m.val} style={{ display:'flex', alignItems:'flex-start', gap:'8px', marginBottom:'8px', cursor:'pointer' }}>
                 <input type="radio" name="nonResMethod" value={m.val} checked={nonResMethod===m.val} onChange={() => update('nonResMethod', m.val)} style={{ marginTop:'3px' }} />
                 <div>
                   <div style={{ fontWeight:'bold', fontSize:'12px', color: nonResMethod===m.val?'#1565c0':'#555' }}>{m.label}</div>
                   <div style={{ fontSize:'11px', color:'#888', marginTop:'2px' }}>{m.desc}</div>
-                  {nonResMethod===m.val && (
-                    <div style={{ fontSize:'13px', fontWeight:'bold', color:'#1565c0', marginTop:'4px' }}>→ {fmtN(m.result)} 천원</div>
-                  )}
+                  {nonResMethod===m.val && <div style={{ fontSize:'13px', fontWeight:'bold', color:'#1565c0', marginTop:'4px' }}>→ {fmtN(m.result)} 천원</div>}
                 </div>
               </label>
             ))}
