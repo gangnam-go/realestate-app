@@ -2590,6 +2590,7 @@ export function SettingsModal({ onClose, constructPeriod }) {
       await setDoc(doc(db, 'settings', 'gasRates'),  { items: gasRates });
       await setDoc(doc(db, 'settings', 'waterRates'), waterRates);
       await setDoc(doc(db, 'settings', 'sewerRates'), sewerRates);
+      window.dispatchEvent(new CustomEvent('settings-saved'));
       alert('저장됐어요!');
     } catch(e) { alert('저장 실패: ' + e.message); }
     setSaving(false);
@@ -11783,21 +11784,20 @@ function ProjectCost({ data, onChange, onSave, saving, archData, incomeData, sal
   const [showFunding,    setShowFunding]    = useState(false);
 
   // 기준정보 로드 (Firestore settings)
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const stdSnap = await getDoc(doc(db, 'settings', 'stdCost'));
-        const artSnap = await getDoc(doc(db, 'settings', 'artRates'));
-        const moefSnap2 = await getDoc(doc(db, 'settings', 'moefStdCost'));
-        setSettingsData({
-          stdCosts:   stdSnap.exists()   ? (stdSnap.data().items   || []) : [{ year: '2026', cost: '2392000', note: '국토부 고시' }],
-          artRates:   artSnap.exists()   ? (artSnap.data().items   || []) : [{ region: '부산광역시', ordinance: '부산광역시 조례 제5조', residRate: '0.1', nonResidRate: '0.5' }],
-          moefCosts:  moefSnap2.exists() ? (moefSnap2.data().items || []) : [
-            { year: '2026', usage: '주거용(아파트 등)', cost: '860000' },
-            { year: '2026', usage: '상업용(상가 등)',   cost: '860000' },
-            { year: '2026', usage: '공업용(공장 등)',   cost: '840000' },
-          ],
-        });
+  const loadSettings = React.useCallback(async () => {
+    try {
+      const stdSnap = await getDoc(doc(db, 'settings', 'stdCost'));
+      const artSnap = await getDoc(doc(db, 'settings', 'artRates'));
+      const moefSnap2 = await getDoc(doc(db, 'settings', 'moefStdCost'));
+      setSettingsData({
+        stdCosts:   stdSnap.exists()   ? (stdSnap.data().items   || []) : [{ year: '2026', cost: '2392000', note: '국토부 고시' }],
+        artRates:   artSnap.exists()   ? (artSnap.data().items   || []) : [{ region: '부산광역시', ordinance: '부산광역시 조례 제5조', residRate: '0.1', nonResidRate: '0.5' }],
+        moefCosts:  moefSnap2.exists() ? (moefSnap2.data().items || []) : [
+          { year: '2026', usage: '주거용(아파트 등)', cost: '860000' },
+          { year: '2026', usage: '상업용(상가 등)',   cost: '860000' },
+          { year: '2026', usage: '공업용(공장 등)',   cost: '840000' },
+        ],
+      });
         // 국민주택채권 기준 로드
         try {
           const bondSnap2 = await getDoc(doc(db, 'settings', 'bondRates'));
@@ -11833,9 +11833,14 @@ function ProjectCost({ data, onChange, onSave, saving, archData, incomeData, sal
           else setSettingsData(prev => ({ ...prev, sewerRates: { entries: [{ year:'2025', city:'부산', ordinance:'부산광역시 하수도 사용 조례 제10조·제12조', unitCost:'1761000' }] }}));
         } catch(e) { console.error(e); }
       } catch(e) { console.error('settings load error:', e); }
-    };
-    load();
-  }, []);
+  }, []);  // eslint-disable-line
+
+  useEffect(() => {
+    loadSettings();
+    const handleSettingsSaved = () => { loadSettings(); };
+    window.addEventListener('settings-saved', handleSettingsSaved);
+    return () => window.removeEventListener('settings-saved', handleSettingsSaved);
+  }, [loadSettings]);
 
   const landData     = data.land     || {};
   const directData   = data.direct   || {};
