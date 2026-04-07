@@ -3654,13 +3654,16 @@ function GasModal({ onClose, onApply, archData, incomeData, settingsData, data, 
     : parseFloat(cityRate?.rate)||22169;
 
   // 수입탭 연동
-  const aptRows   = incomeData?.aptRows   || [];
-  const offiRows  = incomeData?.offiRows  || [];
-  const storeRows = incomeData?.storeRows || [];
+  const aptRows    = incomeData?.aptRows    || [];
+  const offiRows   = incomeData?.offiRows   || [];
+  const publicRows = incomeData?.publicRows || [];  // 공공주택
+  const storeRows  = incomeData?.storeRows  || [];
+  const pubfacRows = incomeData?.pubfacRows || [];  // 공공시설
 
-  const aptUnits  = aptRows.reduce((s,r)  => s + (parseFloat(String(r.units||'').replace(/,/g,''))||0), 0);
-  const offiUnits = offiRows.reduce((s,r) => s + (parseFloat(String(r.units||'').replace(/,/g,''))||0), 0);
-  const resUnits  = aptUnits + offiUnits;
+  const aptUnits    = aptRows.reduce((s,r)    => s + (parseFloat(String(r.units||'').replace(/,/g,''))||0), 0);
+  const offiUnits   = offiRows.reduce((s,r)   => s + (parseFloat(String(r.units||'').replace(/,/g,''))||0), 0);
+  const publicUnits = publicRows.reduce((s,r) => s + (parseFloat(String(r.units||'').replace(/,/g,''))||0), 0);
+  const resUnits    = aptUnits + offiUnits + publicUnits;
 
   // 주거용 타입별 등급 자동결정 (전용면적 평 기준)
   // 25평 이하 → 4등급(4), 26~39평 → 6등급(6), 40평 이상 → 10등급(10)
@@ -3671,8 +3674,8 @@ function GasModal({ onClose, onApply, archData, incomeData, settingsData, data, 
     return             { grade: '10', consumption: 10.0 };
   };
 
-  // 타입별 소비량 계산
-  const resTypeRows = [...aptRows, ...offiRows].map(r => {
+  // 타입별 소비량 계산 (공동주택 + 오피스텔 + 공공주택)
+  const resTypeRows = [...aptRows, ...offiRows, ...publicRows].map(r => {
     const exclM2 = parseFloat(String(r.excl_m2||'').replace(/,/g,''))||0;
     const units  = parseFloat(String(r.units||'').replace(/,/g,''))||0;
     const grade  = getResGrade(exclM2);
@@ -3680,8 +3683,8 @@ function GasModal({ onClose, onApply, archData, incomeData, settingsData, data, 
   });
   const resConsumptionTotal = resTypeRows.reduce((s,r) => s + r.consumption_total, 0);
 
-  // 상가 계약면적 (㎡ → 평)
-  const storeM2Auto = storeRows.reduce((s,r) => {
+  // 계약면적 계산 헬퍼
+  const calcContM2 = (rows) => rows.reduce((s,r) => {
     const excl=parseFloat(String(r.excl_m2||'').replace(/,/g,''))||0;
     const wall=parseFloat(String(r.wall_m2||'').replace(/,/g,''))||0;
     const core=parseFloat(String(r.core_m2||'').replace(/,/g,''))||0;
@@ -3693,9 +3696,16 @@ function GasModal({ onClose, onApply, archData, incomeData, settingsData, data, 
     const units=parseFloat(String(r.units||'').replace(/,/g,''))||0;
     return s + (excl+wall+core+mgmt+comm+park+tel+elec)*units;
   }, 0);
+
+  // 상가 + 공공시설 계약면적 (㎡ → 평)
+  const storeM2Auto  = calcContM2(storeRows);
+  const pubfacM2Auto = calcContM2(pubfacRows);
+  const storeM2AutoTotal = storeM2Auto + pubfacM2Auto;  // 합산
+  const hasPubfac = pubfacM2Auto > 0;
+
   const storeAreaM2 = d.storeAreaOverride
-    ? parseFloat(String(d.storeAreaOverride).replace(/,/g,''))||storeM2Auto
-    : storeM2Auto;
+    ? parseFloat(String(d.storeAreaOverride).replace(/,/g,''))||storeM2AutoTotal
+    : storeM2AutoTotal;
   const storeAreaPy = storeAreaM2 * 0.3025;
 
   // 주거용 계량기 등급 (테이블 하이라이트용)
@@ -3703,20 +3713,22 @@ function GasModal({ onClose, onApply, archData, incomeData, settingsData, data, 
 
   // 업종별 비율/계수
   const getVal = (key, def) => parseFloat(String(d[key]||def).replace(/,/g,''))||parseFloat(def)||0;
-  const officeRatio = getVal('officeRatio', '10');
-  const mixedRatio  = getVal('mixedRatio',  '50');
-  const foodRatio   = getVal('foodRatio',   '40');
-  const ratioSum    = officeRatio + mixedRatio + foodRatio;
+  const officeRatio  = getVal('officeRatio',  '10');
+  const mixedRatio   = getVal('mixedRatio',   '50');
+  const foodRatio    = getVal('foodRatio',    '40');
+  const pubfacRatio  = getVal('pubfacRatio',  '0');   // 공공시설 비율
+  const ratioSum     = officeRatio + mixedRatio + foodRatio + pubfacRatio;
 
-  const officeCoef  = getVal('officeCoef', '0.05');
-  const mixedCoef   = getVal('mixedCoef',  '0.15');
-  const foodCoef    = getVal('foodCoef',   '0.30');
+  const officeCoef   = getVal('officeCoef',  '0.05');
+  const mixedCoef    = getVal('mixedCoef',   '0.15');
+  const foodCoef     = getVal('foodCoef',    '0.30');
+  const pubfacCoef   = getVal('pubfacCoef',  '0.05'); // 공공시설: 6등급 수준
 
   // 계산
   const resConsumption = resConsumptionTotal;
   const resFee         = Math.round(unitPrice * resConsumption);
 
-  const weightedFactor = (officeRatio/100)*officeCoef + (mixedRatio/100)*mixedCoef + (foodRatio/100)*foodCoef;
+  const weightedFactor = (officeRatio/100)*officeCoef + (mixedRatio/100)*mixedCoef + (foodRatio/100)*foodCoef + (pubfacRatio/100)*pubfacCoef;
   const storeCapacity  = storeAreaPy * weightedFactor;
   const storeFee       = Math.round(unitPrice * storeCapacity);
 
@@ -3813,7 +3825,7 @@ function GasModal({ onClose, onApply, archData, incomeData, settingsData, data, 
 
         {/* 주거용 */}
         <div style={boxStyle}>
-          {stepHd('3', '주거용 (공동주택 + 오피스텔)')}
+          {stepHd('3', publicRows.length > 0 ? '주거용 (공동주택 + 오피스텔 + 공공주택)' : '주거용 (공동주택 + 오피스텔)')}
           <div style={{ fontSize:'11px', color:'#888', marginBottom:'10px' }}>
             전용면적 기준 자동 등급 결정: 25평 이하→4등급(4N㎥/h) / 26~39평→6등급(6N㎥/h) / 40평↑→10등급(10N㎥/h)
           </div>
@@ -3863,17 +3875,23 @@ function GasModal({ onClose, onApply, archData, incomeData, settingsData, data, 
 
         {/* 상가용 */}
         <div style={boxStyle}>
-          {stepHd('4', '상가용 (근린상가)')}
+          {stepHd('4', hasPubfac ? '상가용 (근린상가 + 공공시설)' : '상가용 (근린상가)')}
 
           {/* 면적 */}
           <div style={{ marginBottom:'14px' }}>
-            <label style={{ fontSize:'12px', fontWeight:'bold', color:'#555', display:'block', marginBottom:'4px' }}>상가 계약면적 (수입탭 자동연동)</label>
+            <label style={{ fontSize:'12px', fontWeight:'bold', color:'#555', display:'block', marginBottom:'4px' }}>
+              {hasPubfac ? '상가 + 공공시설 계약면적 (수입탭 자동연동)' : '상가 계약면적 (수입탭 자동연동)'}
+            </label>
             <div style={{ fontSize:'11px', color:'#2980b9', marginBottom:'6px' }}>
-              자동: {fmtN(storeM2Auto)}㎡ = {formatNumber((storeM2Auto*0.3025).toFixed(2))}평
+              {hasPubfac ? (
+                <>자동: 근린상가 {fmtN(storeM2Auto)}㎡ + 공공시설 {fmtN(pubfacM2Auto)}㎡ = {fmtN(storeM2AutoTotal)}㎡ = {formatNumber((storeM2AutoTotal*0.3025).toFixed(2))}평</>
+              ) : (
+                <>자동: {fmtN(storeM2Auto)}㎡ = {formatNumber((storeM2Auto*0.3025).toFixed(2))}평</>
+              )}
             </div>
             <div style={{ display:'flex', alignItems:'center', gap:'8px' }}>
               <input value={d.storeAreaOverride||''} onChange={e => update('storeAreaOverride', e.target.value)}
-                placeholder={`자동: ${fmtN(storeM2Auto)}㎡`}
+                placeholder={`자동: ${fmtN(storeM2AutoTotal)}㎡`}
                 style={{ width:'140px', padding:'5px 8px', border:`1px solid ${d.storeAreaOverride?'#e74c3c':'#ddd'}`, borderRadius:'4px', fontSize:'13px', textAlign:'right', backgroundColor:d.storeAreaOverride?'#fdf2f0':'white' }} />
               <span style={{ fontSize:'12px', color:'#888' }}>㎡</span>
               {d.storeAreaOverride && <button onClick={() => update('storeAreaOverride','')} style={{ padding:'4px 8px', fontSize:'11px', backgroundColor:'#e74c3c', color:'white', border:'none', borderRadius:'3px', cursor:'pointer' }}>자동</button>}
@@ -3894,12 +3912,15 @@ function GasModal({ onClose, onApply, archData, incomeData, settingsData, data, 
             </thead>
             <tbody>
               {[
-                { key:'office', label:'일반/클리닉', desc:'사무실·의원 (6등급 수준, 바닥난방+온수)', ratioKey:'officeRatio', coefKey:'officeCoef', defR:'10', defC:'0.05', val: officeRatio, coef: officeCoef },
-                { key:'mixed',  label:'복합상가',    desc:'카페·미용실·편의점 (10등급 수준, 온수+화구)', ratioKey:'mixedRatio', coefKey:'mixedCoef', defR:'50', defC:'0.15', val: mixedRatio, coef: mixedCoef },
-                { key:'food',   label:'전문식당가',  desc:'한·중·일식 (16등급 수준, 대형화구+고화력)', ratioKey:'foodRatio', coefKey:'foodCoef', defR:'40', defC:'0.30', val: foodRatio, coef: foodCoef },
+                { key:'office', label:'일반/클리닉', desc:'사무실·의원 (6등급 수준, 바닥난방+온수)',    ratioKey:'officeRatio', coefKey:'officeCoef', defR:'10', defC:'0.05', val: officeRatio, coef: officeCoef },
+                { key:'mixed',  label:'복합상가',    desc:'카페·미용실·편의점 (10등급 수준, 온수+화구)', ratioKey:'mixedRatio',  coefKey:'mixedCoef',  defR:'50', defC:'0.15', val: mixedRatio,  coef: mixedCoef  },
+                { key:'food',   label:'전문식당가',  desc:'한·중·일식 (16등급 수준, 대형화구+고화력)',   ratioKey:'foodRatio',   coefKey:'foodCoef',   defR:'40', defC:'0.30', val: foodRatio,   coef: foodCoef   },
+                ...(hasPubfac ? [
+                  { key:'pubfac', label:'공공시설', desc:'사무·복지시설 (6등급 수준, 바닥난방+온수)',   ratioKey:'pubfacRatio', coefKey:'pubfacCoef', defR:'0',  defC:'0.05', val: pubfacRatio, coef: pubfacCoef },
+                ] : []),
               ].map((row, i) => (
-                <tr key={row.key} style={{ backgroundColor: i%2===0?'white':'#fafafa' }}>
-                  <td style={{ padding:'6px 10px', fontWeight:'bold' }}>{row.label}</td>
+                <tr key={row.key} style={{ backgroundColor: row.key==='pubfac'?'#e8f4fd': i%2===0?'white':'#fafafa' }}>
+                  <td style={{ padding:'6px 10px', fontWeight:'bold', color: row.key==='pubfac'?'#1a5276':undefined }}>{row.label}</td>
                   <td style={{ padding:'6px 10px', fontSize:'11px', color:'#888' }}>{row.desc}</td>
                   <td style={{ padding:'4px 8px', textAlign:'right' }}>
                     <input value={d[row.ratioKey]??row.defR} onChange={e => update(row.ratioKey, e.target.value)}
@@ -3908,7 +3929,8 @@ function GasModal({ onClose, onApply, archData, incomeData, settingsData, data, 
                   </td>
                   <td style={{ padding:'4px 8px', textAlign:'right' }}>
                     <input value={d[row.coefKey]??row.defC} onChange={e => update(row.coefKey, e.target.value)}
-                      style={{ width:'80px', padding:'4px 8px', border:'1px solid #e65100', borderRadius:'3px', fontSize:'13px', textAlign:'right', color:'#e65100', fontWeight:'bold' }} />
+                      readOnly={row.key==='pubfac'}
+                      style={{ width:'80px', padding:'4px 8px', border:'1px solid #e65100', borderRadius:'3px', fontSize:'13px', textAlign:'right', color:'#e65100', fontWeight:'bold', backgroundColor: row.key==='pubfac'?'#fff8e1':'white' }} />
                   </td>
                 </tr>
               ))}
