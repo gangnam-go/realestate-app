@@ -5581,7 +5581,7 @@ function PropTaxModal({ onClose, onApply, archData, data, onChange }) {
     prevTotal = actualTotalChun;
   });
 
-  const grandTotal = yearCalc.reduce((s, r) => s + r.actualTotal, 0);
+  const grandTotal = (isHousingPlan || !isTaxable) ? 0 : yearCalc.reduce((s, r) => s + r.actualTotal, 0);
 
   const fmtN = (v) => formatNumber(Math.round(v));
   const boxStyle = { border:'1px solid #e0e0e0', borderRadius:'8px', padding:'14px 18px', marginBottom:'14px' };
@@ -5881,7 +5881,7 @@ function CompTaxModal({ onClose, onApply, archData, data, onChange }) {
     prevTotal = actualChun;
   });
 
-  const grandTotal = yearCalc.reduce((s, r) => s + r.actualTotal, 0);
+  const grandTotal = (isHousingPlan || !isTaxable) ? 0 : yearCalc.reduce((s, r) => s + r.actualTotal, 0);
 
   const fmtN = (v) => formatNumber(Math.round(v));
   const boxStyle = { border:'1px solid #e0e0e0', borderRadius:'8px', padding:'14px 18px', marginBottom:'14px' };
