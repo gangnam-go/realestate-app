@@ -1745,7 +1745,7 @@ function GasRateSettings({ gasRates, setGasRates, thStyle, tdStyle }) {
                       placeholder="부산" style={{ width: '100%', padding:'4px 8px', border:'1px solid #ddd', borderRadius:'3px', fontSize:'12px' }} />
                   </td>
                   <td style={tdStyle}>
-                    <input value={item.rate} onChange={e => updateRow(i,'rate',e.target.value)}
+                    <input value={item.rate || ''} onChange={e => updateRow(i,'rate',e.target.value)}
                       placeholder="22169" style={{ width:'130px', padding:'4px 8px', border:'1px solid #e65100', borderRadius:'3px', fontSize:'13px', textAlign:'right', color:'#e65100', fontWeight:'bold' }} />
                   </td>
                   <td style={tdStyle}>
