@@ -4168,28 +4168,30 @@ function WaterModal({ onClose, onApply, archData, incomeData, settingsData, data
   const resUnits   = aptUnits + offiUnits + publicUnits;
 
   // 선택값
-  const bizType      = d.bizType      || 'medium';
-  const drainType    = d.drainType    || 'nodrain'; // 서울 대규모: nodrain=배수미설치, drain=배수설치
-  const resMethod    = d.resMethod    || '1';   // 1=세대당고정(부산), 2=단위사업비×사용량
-  const nonResMethod = d.nonResMethod || '1';   // 1=구경별고정, 2=단위사업비×사용량
-  const pipeSizeKey  = d.pipeSizeKey  || '40';
+  const bizType         = d.bizType         || 'medium';
+  const drainType       = d.drainType       || 'nodrain'; // 서울 대규모: nodrain=배수미설치, drain=배수설치
+  const resMethod       = d.resMethod       || '1';   // 1=세대당고정(부산), 2=단위사업비×사용량
+  const nonResMethod    = d.nonResMethod    || '1';   // 1=구경별고정, 2=단위사업비×사용량
+  const resPipeSizeKey  = d.resPipeSizeKey  || '40';  // 주거용 구경
+  const nonResPipeSizeKey = d.nonResPipeSizeKey || '40'; // 비주거용 구경
+  const pipeSizeKey     = nonResPipeSizeKey; // 하위 호환용
 
   // ── 부산 계산 ──
   const resFee1 = 349 * resUnits;  // 부산 방식①
   const resUsePerHH = (dailyUse/1000) * avgPerson * peakRate * 0.47;
   const resFee2_busan = Math.round(mediumUnit/1000 * resUsePerHH * resUnits);
-  const pipeUseM3_busan = parseFloat(WATER_PIPE_USE_BUSAN[pipeSizeKey]||'11.22');
-  const nonResFee1_busan = parseFloat(medPipes[pipeSizeKey]||'8349');
+  const pipeUseM3_busan = parseFloat(WATER_PIPE_USE_BUSAN[nonResPipeSizeKey]||'11.22');
+  const nonResFee1_busan = parseFloat(medPipes[nonResPipeSizeKey]||'8349');
   const nonResFee2_busan = Math.round(mediumUnit/1000 * pipeUseM3_busan);
-  const smFee = parseFloat(smPipes[pipeSizeKey]||'4559');
+  const smFee = parseFloat(smPipes[nonResPipeSizeKey]||'4559');
 
   // ── 서울 계산 ──
   const seoulLargeUnit = drainType === 'drain' ? largeDrainUnit : largeUnit;
-  // 서울 주거 (가정용 구경별 사용량 기준)
-  const homePipeUse   = parseFloat(homePipes[pipeSizeKey]||'10.18');
+  // 서울 주거 (가정용 구경별 사용량 기준 — resPipeSizeKey 사용)
+  const homePipeUse   = parseFloat(homePipes[resPipeSizeKey]||'10.18');
   const resFee_seoul  = Math.round(mediumUnit/1000 * homePipeUse * resUnits);
-  // 서울 비주거 (비가정용 구경별 사용량 기준)
-  const nonHomePipeUse   = parseFloat(nonHomePipes[pipeSizeKey]||'13.76');
+  // 서울 비주거 (비가정용 구경별 사용량 기준 — nonResPipeSizeKey 사용)
+  const nonHomePipeUse   = parseFloat(nonHomePipes[nonResPipeSizeKey]||'13.76');
   const nonResFee_seoul  = Math.round(mediumUnit/1000 * nonHomePipeUse);
 
   // ── 최종 선택값 ──
@@ -4197,7 +4199,7 @@ function WaterModal({ onClose, onApply, archData, incomeData, settingsData, data
     ? resFee_seoul
     : (resMethod==='1' ? resFee1 : resFee2_busan);
   const nonResFeeAmt = isSeoul
-    ? (nonResMethod==='1' ? nonResFee_seoul : Math.round(mediumUnit/1000 * nonHomePipeUse))
+    ? nonResFee_seoul
     : (nonResMethod==='1' ? nonResFee1_busan : nonResFee2_busan);
 
   const totalFee = bizType==='small' ? smFee : (resFeeAmt + nonResFeeAmt);
@@ -4306,16 +4308,16 @@ function WaterModal({ onClose, onApply, archData, incomeData, settingsData, data
         </div>
 
         {/* STEP 2 - 주거시설 */}
-        {bizType === 'medium' && (
+        {bizType !== 'small' && (
           <div style={boxStyle}>
             {stepHd('2', isSeoul ? '주거시설 — 공동주택 / 오피스텔 / 공공주택' : '주거시설 — 공동주택 / 오피스텔')}
             <div style={{ fontSize:'11px', color:'#2980b9', marginBottom:'10px', fontWeight:'bold' }}>
               세대수: {fmtN(resUnits)}세대 (공동주택 {fmtN(aptUnits)} + 오피스텔 {fmtN(offiUnits)}{publicUnits > 0 ? ` + 공공주택 ${fmtN(publicUnits)}` : ''}) — 수입탭 자동연동
             </div>
-            {/* 계량기 구경 선택 */}
+            {/* 주거용 계량기 구경 선택 */}
             <div style={{ marginBottom:'12px' }}>
-              <label style={{ fontSize:'12px', fontWeight:'bold', color:'#555', display:'block', marginBottom:'6px' }}>계량기 구경 선택</label>
-              <select value={pipeSizeKey} onChange={e => update('pipeSizeKey', e.target.value)}
+              <label style={{ fontSize:'12px', fontWeight:'bold', color:'#555', display:'block', marginBottom:'6px' }}>계량기 구경 선택 (주거용)</label>
+              <select value={resPipeSizeKey} onChange={e => update('resPipeSizeKey', e.target.value)}
                 style={{ padding:'6px 10px', border:'1px solid #1565c0', borderRadius:'4px', fontSize:'13px', color:'#1565c0', fontWeight:'bold' }}>
                 {WATER_PIPE_SIZES_MEDIUM.map(s => (
                   <option key={s} value={s}>
@@ -4328,7 +4330,7 @@ function WaterModal({ onClose, onApply, archData, incomeData, settingsData, data
               <div style={{ backgroundColor:'#e3f2fd', borderRadius:'6px', padding:'10px 14px' }}>
                 <div style={{ fontSize:'12px', fontWeight:'bold', color:'#1565c0', marginBottom:'4px' }}>구경별 가정용 사용량 기준</div>
                 <div style={{ fontSize:'11px', color:'#555' }}>
-                  {fmtN(mediumUnit)}원/㎥ ÷ 1,000 × {homePipes[pipeSizeKey]||'-'}㎥/일 × {fmtN(resUnits)}세대
+                  {fmtN(mediumUnit)}원/㎥ ÷ 1,000 × {homePipes[resPipeSizeKey]||'-'}㎥/일 × {fmtN(resUnits)}세대
                 </div>
                 <div style={{ fontSize:'14px', fontWeight:'bold', color:'#1565c0', marginTop:'6px' }}>→ {fmtN(resFee_seoul)} 천원</div>
               </div>
@@ -4354,12 +4356,12 @@ function WaterModal({ onClose, onApply, archData, incomeData, settingsData, data
         )}
 
         {/* STEP 3 - 비주거시설 */}
-        {bizType === 'medium' && (
+        {bizType !== 'small' && (
           <div style={boxStyle}>
             {stepHd('3', '비주거시설 — 근린상가 (일반건축물)')}
             <div style={{ marginBottom:'12px' }}>
-              <label style={{ fontSize:'12px', fontWeight:'bold', color:'#555', display:'block', marginBottom:'6px' }}>계량기 구경 선택</label>
-              <select value={pipeSizeKey} onChange={e => update('pipeSizeKey', e.target.value)}
+              <label style={{ fontSize:'12px', fontWeight:'bold', color:'#555', display:'block', marginBottom:'6px' }}>계량기 구경 선택 (비주거용)</label>
+              <select value={nonResPipeSizeKey} onChange={e => update('nonResPipeSizeKey', e.target.value)}
                 style={{ padding:'6px 10px', border:'1px solid #1565c0', borderRadius:'4px', fontSize:'13px', color:'#1565c0', fontWeight:'bold' }}>
                 {WATER_PIPE_SIZES_MEDIUM.map(s => (
                   <option key={s} value={s}>
@@ -4374,14 +4376,14 @@ function WaterModal({ onClose, onApply, archData, incomeData, settingsData, data
                   <tr style={{ backgroundColor:'#1565c0', color:'white' }}>
                     <th style={{ padding:'5px 8px' }}>구분</th>
                     {WATER_PIPE_SIZES_MEDIUM.map(s => (
-                      <th key={s} style={{ padding:'5px 8px', whiteSpace:'nowrap', backgroundColor: s===pipeSizeKey ? '#0d47a1' : '#1565c0' }}>{s}㎜</th>
+                      <th key={s} style={{ padding:'5px 8px', whiteSpace:'nowrap', backgroundColor: s===nonResPipeSizeKey ? '#0d47a1' : '#1565c0' }}>{s}㎜</th>
                     ))}
                   </tr>
                   {!isSeoul && (
                     <tr style={{ backgroundColor:'#e3f2fd' }}>
                       <td style={{ padding:'4px 8px', fontWeight:'bold', fontSize:'11px' }}>부담금(천원)</td>
                       {WATER_PIPE_SIZES_MEDIUM.map(s => (
-                        <td key={s} style={{ padding:'4px 8px', textAlign:'right', fontWeight: s===pipeSizeKey?'bold':'normal', color: s===pipeSizeKey?'#1565c0':'#333' }}>
+                        <td key={s} style={{ padding:'4px 8px', textAlign:'right', fontWeight: s===nonResPipeSizeKey?'bold':'normal', color: s===nonResPipeSizeKey?'#1565c0':'#333' }}>
                           {formatNumber(medPipes[s]||'')}
                         </td>
                       ))}
@@ -4465,7 +4467,7 @@ function WaterModal({ onClose, onApply, archData, incomeData, settingsData, data
             <div style={{ color:'white', fontSize:'13px', fontWeight:'bold' }}>상수도 원인자부담금 합계</div>
             {bizType==='medium' && (
               <div style={{ color:'#90caf9', fontSize:'11px', marginTop:'3px' }}>
-                주거시설 {fmtN(resFeeAmt)}천원 + 비주거시설 {fmtN(nonResFeeAmt)}천원
+                주거({resPipeSizeKey}㎜) {fmtN(resFeeAmt)}천원 + 비주거({nonResPipeSizeKey}㎜) {fmtN(nonResFeeAmt)}천원
               </div>
             )}
           </div>
