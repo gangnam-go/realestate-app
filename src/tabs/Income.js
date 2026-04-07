@@ -181,6 +181,24 @@ function IncomeSection({ title, color, rows, onAdd, onEdit, onRemove, mode = 'ap
 
   const areaLabel = (m2, py) => isPy ? formatNumber(py.toFixed(2)) : formatNumber(m2.toFixed(2));
 
+  // 합계 면적 계산
+  const totalUnits   = rows.reduce((s, r) => s + (parseFloat(parseNumber(r.units)) || 0), 0);
+  const totalExclM2  = rows.reduce((s, r) => {
+    const excl  = parseFloat(parseNumber(r.excl_m2)) || 0;
+    const units = parseFloat(parseNumber(r.units))   || 0;
+    return s + excl * units;
+  }, 0);
+  const totalSupM2   = rows.reduce((s, r) => {
+    const c     = calcRow(r, mode);
+    const units = parseFloat(parseNumber(r.units)) || 0;
+    return s + c.sup_m2 * units;
+  }, 0);
+  const totalContM2  = rows.reduce((s, r) => {
+    const c     = calcRow(r, mode);
+    const units = parseFloat(parseNumber(r.units)) || 0;
+    return s + c.cont_m2 * units;
+  }, 0);
+
   return (
     <div style={{ marginBottom: '28px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
@@ -243,7 +261,21 @@ function IncomeSection({ title, color, rows, onAdd, onEdit, onRemove, mode = 'ap
           {rows.length > 0 && (
             <tfoot>
               <tr style={{ backgroundColor: '#f0f0f0', fontWeight: 'bold' }}>
-                <td colSpan={7} style={{ padding: '7px 10px', fontSize: '12px', textAlign: 'right' }}>합계</td>
+                <td style={{ padding: '7px 10px', fontSize: '12px', textAlign: 'left', color: '#555' }}>합계</td>
+                <td style={{ padding: '7px 10px', fontSize: '12px', textAlign: 'right' }}>
+                  {formatNumber(totalUnits)}
+                </td>
+                <td></td>
+                <td style={{ padding: '7px 10px', fontSize: '11px', textAlign: 'right', color: '#555' }}>
+                  {areaLabel(totalExclM2, totalExclM2 * 0.3025)}
+                </td>
+                <td style={{ padding: '7px 10px', fontSize: '11px', textAlign: 'right', color: '#555' }}>
+                  {areaLabel(totalSupM2, totalSupM2 * 0.3025)}
+                </td>
+                <td style={{ padding: '7px 10px', fontSize: '11px', textAlign: 'right', color: '#555' }}>
+                  {areaLabel(totalContM2, totalContM2 * 0.3025)}
+                </td>
+                <td></td>
                 <td style={{ padding: '7px 10px', fontSize: '12px', textAlign: 'right', color: color.header }}>
                   {formatNumber(total.toFixed(0))}
                 </td>
@@ -264,7 +296,6 @@ function IncomeSection({ title, color, rows, onAdd, onEdit, onRemove, mode = 'ap
 
 function BalconySection({ aptRows, publicRows, balcony, onChange, burden, setBurden, balIncludePublic, setBalIncludePublic }) {
   const color = COLORS.balcony;
-  // 공공주택 포함 여부에 따라 표시할 rows 결정
   const displayRows = balIncludePublic ? [...aptRows, ...publicRows] : aptRows;
   const total = displayRows.reduce((s, r) => {
     const units = parseFloat(parseNumber(r.units)) || 0;
@@ -280,7 +311,6 @@ function BalconySection({ aptRows, publicRows, balcony, onChange, burden, setBur
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <div style={{ fontWeight: 'bold', fontSize: '14px', color: color.main }}>발코니확장</div>
-          {/* 공공주택 포함 체크박스 */}
           <label style={{ display: 'flex', alignItems: 'center', gap: '5px', cursor: 'pointer', fontSize: '12px', color: '#555' }}>
             <input type="checkbox" checked={!!balIncludePublic}
               onChange={e => setBalIncludePublic(e.target.checked)}
@@ -288,7 +318,6 @@ function BalconySection({ aptRows, publicRows, balcony, onChange, burden, setBur
             공공주택 포함
           </label>
         </div>
-        {/* 부담 선택 */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <span style={{ fontSize: '12px', color: '#555', fontWeight: 'bold' }}>비용 부담:</span>
           {['분양자 부담', '시행사 부담'].map(v => (
@@ -418,19 +447,16 @@ function Income({ data, onChange, onSave, saving, salesData }) {
   const pubfacTotal = pubfacRows.reduce((s, r) => s + calcRow(r, 'store').total, 0);
   const grandTotal  = aptTotal + publicTotal + balTotal + offiTotal + storeTotal + pubfacTotal;
 
-  // VAT 계산 (수입탭 원천)
   const aptVatTotal = aptRows.reduce((s, r) => {
     const c = calcRow(r, 'apt');
     return s + (c.vat_free ? 0 : Math.round(c.total * 0.1));
   }, 0);
-  // 공공주택: 85㎡ 기준 면세/과세 (공동주택과 동일)
   const publicVatTotal = publicRows.reduce((s, r) => {
     const c = calcRow(r, 'apt');
     return s + (c.vat_free ? 0 : Math.round(c.total * 0.1));
   }, 0);
   const offiVatTotal   = offiRows.reduce((s, r) => s + Math.round(calcRow(r, 'offi').total * 0.1), 0);
   const storeVatTotal  = storeRows.reduce((s, r) => s + Math.round(calcRow(r, 'store').total * 0.1), 0);
-  // 공공시설: 무조건 과세
   const pubfacVatTotal = pubfacRows.reduce((s, r) => s + Math.round(calcRow(r, 'store').total * 0.1), 0);
   const grandVatTotal  = aptVatTotal + publicVatTotal + offiVatTotal + storeVatTotal + pubfacVatTotal;
 
@@ -444,13 +470,10 @@ function Income({ data, onChange, onSave, saving, salesData }) {
         />
       )}
 
-      {/* 크로스체크 팝업 */}
       {showCrossCheck && (() => {
         const fmtCC = (v) => v === null ? '—' : Math.round(v).toLocaleString('ko-KR');
         const chk3 = (a, b, c) => Math.abs(a-b)<2 && Math.abs(b-c)<2 && Math.abs(a-c)<2 ? '✅' : '❌';
         const sd = salesData || {};
-
-        // 분양율탭 수입요약 합계 (salesData에서)
         const salApt   = sd.salesSumApt   || 0;
         const salBal   = sd.salesSumBal   || 0;
         const salOffi  = sd.salesSumOffi  || 0;
@@ -458,8 +481,6 @@ function Income({ data, onChange, onSave, saving, salesData }) {
         const salAptVat   = sd.salesSumAptVat   || 0;
         const salOffiVat  = sd.salesSumOffiVat  || 0;
         const salStoreVat = sd.salesSumStoreVat || 0;
-
-        // 분양율탭 타임라인 합계 (salesData에서)
         const tlApt   = sd.timelineApt   || 0;
         const tlBal   = sd.timelineBal   || 0;
         const tlOffi  = sd.timelineOffi  || 0;
@@ -467,27 +488,23 @@ function Income({ data, onChange, onSave, saving, salesData }) {
         const tlAptVat   = sd.timelineAptVat   || 0;
         const tlOffiVat  = sd.timelineOffiVat  || 0;
         const tlStoreVat = sd.timelineStoreVat || 0;
-
         const cats = [
           { label:'공동주택', incomeA:aptTotal,   salB:salApt,   tlC:tlApt,   incomeVat:aptVatTotal, salVat:salAptVat, tlVat:tlAptVat },
           ...(balTotal>0||salBal>0 ? [{ label:'발코니확장', incomeA:balTotal, salB:salBal, tlC:tlBal, incomeVat:0, salVat:0, tlVat:0 }] : []),
           { label:'오피스텔', incomeA:offiTotal,  salB:salOffi,  tlC:tlOffi,  incomeVat:offiVatTotal, salVat:salOffiVat, tlVat:tlOffiVat },
           { label:'근린상가', incomeA:storeTotal, salB:salStore, tlC:tlStore, incomeVat:storeVatTotal, salVat:salStoreVat, tlVat:tlStoreVat },
         ];
-
         const totA=aptTotal+balTotal+offiTotal+storeTotal;
         const totB=salApt+salBal+salOffi+salStore;
         const totC=tlApt+tlBal+tlOffi+tlStore;
         const vatA=grandVatTotal, vatB=salAptVat+salOffiVat+salStoreVat, vatC=tlAptVat+tlOffiVat+tlStoreVat;
         const supOk=chk3(totA,totB,totC), vatOk=chk3(vatA,vatB,vatC);
         const overallOk=supOk==='✅'&&vatOk==='✅'?'✅':'❌';
-
         const thS=(bg)=>({padding:'7px 10px',textAlign:'right',fontWeight:'bold',color:'white',backgroundColor:bg||'#2c3e50',fontSize:'11px',whiteSpace:'nowrap'});
         const tdS={padding:'6px 10px',textAlign:'right',fontSize:'12px',borderBottom:'1px solid #eee',whiteSpace:'nowrap'};
         const secTitle=(title,color)=>(
           <tr><td colSpan={5} style={{padding:'10px 10px 4px',fontWeight:'bold',fontSize:'13px',color,borderTop:'2px solid '+color,backgroundColor:color+'11'}}>{title}</td></tr>
         );
-
         return (
           <div style={{position:'fixed',top:0,left:0,width:'100vw',height:'100vh',backgroundColor:'rgba(0,0,0,0.5)',zIndex:3000,display:'flex',alignItems:'center',justifyContent:'center'}}>
             <div style={{backgroundColor:'white',borderRadius:'10px',width:'96%',maxWidth:'860px',maxHeight:'90vh',overflowY:'auto',padding:'24px'}}>
@@ -612,7 +629,6 @@ function Income({ data, onChange, onSave, saving, salesData }) {
         rows={pubfacRows} onAdd={() => openAdd('pubfac')} onEdit={i => openEdit('pubfac', i)} onRemove={i => handleRemove('pubfac', i)} />
 
       <div style={{ backgroundColor: '#2c3e50', color: 'white', borderRadius: '8px', padding: '16px 20px', marginTop: '8px' }}>
-        {/* 카테고리별 공급가 / 부가세 / 총액 */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '12px', fontSize: '13px', marginBottom: '14px' }}>
           {[
             { label: '공동주택',  supply: aptTotal,    vat: aptVatTotal    },
@@ -640,8 +656,6 @@ function Income({ data, onChange, onSave, saving, salesData }) {
               </div>
             </div>
           ))}
-
-          {/* 총합계 */}
           <div style={{ borderLeft: '1px solid rgba(255,255,255,0.2)', paddingLeft: '16px' }}>
             <div style={{ opacity: 0.65, marginBottom: '6px', fontSize: '12px', fontWeight: 'bold' }}>전체 합계</div>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '3px' }}>
