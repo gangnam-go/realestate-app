@@ -7669,13 +7669,15 @@ function TaxCostSection({ data, onChange, archData, incomeData, settingsData, co
             <td style={{ padding: '8px 12px' }}>
               {(() => {
                 const rows = [
-                  { funding: d.trans_funding, amt: transAmt },
-                  { funding: d.gas_funding,   amt: gasAmt   },
-                  { funding: d.water_funding, amt: waterAmt },
-                  { funding: d.sewer_funding,     amt: sewerAmt     },
+                  { funding: d.trans_funding,    amt: transAmt    },
+                  { funding: d.gas_funding,       amt: gasAmt      },
+                  { funding: d.water_funding,     amt: waterAmt    },
+                  { funding: d.sewer_funding,     amt: sewerAmt    },
                   { funding: d.bondBuild_funding, amt: bondBuildAmt },
-                  { funding: d.school_funding, amt: schoolAmt },
-                  { funding: d.reg_funding,    amt: regAmt    },
+                  { funding: d.school_funding,    amt: schoolAmt   },
+                  { funding: d.reg_funding,       amt: regAmt      },
+                  { funding: d.propTax_funding,   amt: propTaxAmt  },
+                  { funding: d.compTax_funding,   amt: compTaxAmt  },
                   ...etcItems.map(it => ({ funding: it.funding, amt: parseFloat(String(it.amt||'').replace(/,/g,''))||0 })),
                 ];
                 const summary = calcFundingSummary(rows);
