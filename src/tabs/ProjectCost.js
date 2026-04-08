@@ -4671,17 +4671,35 @@ function SewerRateSettings({ sewerRates, setSewerRates, thStyle, tdStyle }) {
   const updateEntry = (key, val) => setSewerRates({ ...sewerRates, entries: entries.map(e =>
     e.year===activeYear && e.city===activeCity ? {...e,[key]:val} : e
   )});
+  const SEOUL_ZONES = [
+    { zone:'중랑', unitCost:'1032000', districts:'종로·중구·용산·성동·광진·동대문·중랑·성북·강북·도봉·노원' },
+    { zone:'난지', unitCost:'928000',  districts:'은평·마포·서대문' },
+    { zone:'탄천', unitCost:'1309000', districts:'강남·송파·서초·강동' },
+    { zone:'서남', unitCost:'1131000', districts:'금천·구로·양천·강서·영등포·동작·관악' },
+  ];
+
   const addEntry = () => {
     const yr   = window.prompt('추가할 연도를 입력하세요 (예: 2026)');
     if (!yr?.trim()) return;
-    const city = window.prompt('도시명을 입력하세요 (예: 부산)') || '부산';
+    const city = window.prompt('도시명을 입력하세요 (예: 부산 또는 서울)') || '부산';
     if (entries.find(e=>e.year===yr.trim()&&e.city===city.trim())) { alert('이미 있어요.'); return; }
-    setSewerRates({ ...sewerRates, entries: [...entries, {
-      year:yr.trim(), city:city.trim(),
-      ordinance:`${city.trim()} 하수도 사용 조례`,
-      unitCost:'1761000',
-    }]});
-    setSelYear(yr.trim()); setSelCity(city.trim());
+    if (city.trim() === '서울') {
+      // 서울: 4개 처리구역 자동 생성
+      const newEntries = SEOUL_ZONES.map(z => ({
+        year: yr.trim(), city: '서울',
+        ordinance: '서울특별시 하수도 사용 조례 제30조·제31조',
+        unitCost: z.unitCost, zone: z.zone, districts: z.districts,
+      }));
+      setSewerRates({ ...sewerRates, entries: [...entries, ...newEntries] });
+      setSelYear(yr.trim()); setSelCity('서울');
+    } else {
+      setSewerRates({ ...sewerRates, entries: [...entries, {
+        year:yr.trim(), city:city.trim(),
+        ordinance:`${city.trim()} 하수도 사용 조례`,
+        unitCost:'1761000',
+      }]});
+      setSelYear(yr.trim()); setSelCity(city.trim());
+    }
   };
   const deleteEntry = () => {
     if (!window.confirm(`${activeYear}년 ${activeCity} 데이터를 삭제할까요?`)) return;
@@ -4726,10 +4744,20 @@ function SewerRateSettings({ sewerRates, setSewerRates, thStyle, tdStyle }) {
             </button>
           ))}
           <button onClick={() => {
-            const city = window.prompt(`${activeYear}년에 추가할 도시명`);
+            const city = window.prompt(`${activeYear}년에 추가할 도시명 (예: 부산 또는 서울)`);
             if (!city?.trim()) return;
-            setSewerRates({ ...sewerRates, entries: [...entries, { year:activeYear, city:city.trim(), ordinance:`${city.trim()} 하수도 사용 조례`, unitCost:'1761000' }]});
-            setSelCity(city.trim());
+            if (city.trim() === '서울') {
+              const newEntries = SEOUL_ZONES.map(z => ({
+                year: activeYear, city: '서울',
+                ordinance: '서울특별시 하수도 사용 조례 제30조·제31조',
+                unitCost: z.unitCost, zone: z.zone, districts: z.districts,
+              }));
+              setSewerRates({ ...sewerRates, entries: [...entries, ...newEntries] });
+              setSelCity('서울');
+            } else {
+              setSewerRates({ ...sewerRates, entries: [...entries, { year:activeYear, city:city.trim(), ordinance:`${city.trim()} 하수도 사용 조례`, unitCost:'1761000' }]});
+              setSelCity(city.trim());
+            }
           }} style={{ padding:'5px 10px', backgroundColor:'#f3e5f5', border:'1px dashed #ce93d8', borderRadius:'4px', cursor:'pointer', fontSize:'11px', color:'#6a1b9a' }}>
             + 도시 추가
           </button>
@@ -4741,26 +4769,61 @@ function SewerRateSettings({ sewerRates, setSewerRates, thStyle, tdStyle }) {
       )}
 
       {activeEntry.year ? (
-        <div style={{ display:'flex', flexDirection:'column', gap:'12px' }}>
+        activeCity === '서울' ? (
+          // 서울: 4개 처리구역 테이블로 표시
           <div>
-            <label style={{ fontSize:'12px', fontWeight:'bold', color:'#555', display:'block', marginBottom:'4px' }}>근거 조례명</label>
-            <input value={activeEntry.ordinance||''} onChange={e=>updateEntry('ordinance',e.target.value)}
-              style={{ width:'100%', padding:'6px 10px', border:'1px solid #ce93d8', borderRadius:'4px', fontSize:'12px' }}
-              placeholder="예: 부산광역시 하수도 사용 조례 제10조·제12조" />
-          </div>
-          <div>
-            <label style={{ fontSize:'12px', fontWeight:'bold', color:'#6a1b9a', display:'block', marginBottom:'4px' }}>
-              단위단가 (원/㎥) — 개별건축물 원인자부담금 (조례 제10조)
-            </label>
-            <div style={{ display:'flex', alignItems:'center', gap:'8px' }}>
-              <input value={activeEntry.unitCost||''} onChange={e=>updateEntry('unitCost',e.target.value)}
-                style={{ width:'160px', padding:'6px 10px', border:'1px solid #6a1b9a', borderRadius:'4px', fontSize:'14px', textAlign:'right', color:'#6a1b9a', fontWeight:'bold' }}
-                placeholder="1761000" />
-              <span style={{ fontSize:'12px', color:'#888' }}>원/㎥</span>
-              <span style={{ fontSize:'11px', color:'#aaa' }}>(타행위 단위단가는 조례 제12조 해당 시설 단위단가 적용)</span>
+            <div style={{ fontSize:'12px', fontWeight:'bold', color:'#555', marginBottom:'8px' }}>
+              서울특별시 하수도 사용 조례 제30조·제31조 — 하수처리 구역별 단위단가
+            </div>
+            <table style={{ width:'100%', borderCollapse:'collapse', fontSize:'12px', marginBottom:'12px' }}>
+              <thead>
+                <tr style={{ backgroundColor:'#6a1b9a', color:'white' }}>
+                  <th style={{ padding:'7px 10px', textAlign:'left' }}>처리구역</th>
+                  <th style={{ padding:'7px 10px', textAlign:'right', width:'140px' }}>단위단가 (원/㎥)</th>
+                  <th style={{ padding:'7px 10px', textAlign:'left' }}>주요 관할구</th>
+                </tr>
+              </thead>
+              <tbody>
+                {yearEntries.filter(e=>e.city==='서울').map((e,i) => (
+                  <tr key={i} style={{ backgroundColor: i%2===0?'white':'#f3e5f5' }}>
+                    <td style={{ padding:'7px 10px', fontWeight:'bold', color:'#4a148c' }}>{e.zone || '-'}</td>
+                    <td style={{ padding:'6px 10px', textAlign:'right' }}>
+                      <input value={e.unitCost||''} onChange={ev => setSewerRates({ ...sewerRates, entries: entries.map(en =>
+                        en.year===activeYear && en.city==='서울' && en.zone===e.zone ? {...en, unitCost: ev.target.value} : en
+                      )})}
+                        style={{ width:'120px', padding:'4px 8px', border:'1px solid #6a1b9a', borderRadius:'3px', fontSize:'13px', textAlign:'right', color:'#6a1b9a', fontWeight:'bold' }} />
+                    </td>
+                    <td style={{ padding:'7px 10px', fontSize:'11px', color:'#888' }}>{e.districts}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <div style={{ fontSize:'11px', color:'#888', padding:'6px 10px', backgroundColor:'#f8f9fa', borderRadius:'4px' }}>
+              💡 계산기에서 프로젝트 소재지에 맞는 처리구역을 선택하면 해당 단위단가가 자동 적용됩니다.
             </div>
           </div>
-        </div>
+        ) : (
+          // 부산 등 일반 도시
+          <div style={{ display:'flex', flexDirection:'column', gap:'12px' }}>
+            <div>
+              <label style={{ fontSize:'12px', fontWeight:'bold', color:'#555', display:'block', marginBottom:'4px' }}>근거 조례명</label>
+              <input value={activeEntry.ordinance||''} onChange={e=>updateEntry('ordinance',e.target.value)}
+                style={{ width:'100%', padding:'6px 10px', border:'1px solid #ce93d8', borderRadius:'4px', fontSize:'12px' }}
+                placeholder="예: 부산광역시 하수도 사용 조례 제10조·제12조" />
+            </div>
+            <div>
+              <label style={{ fontSize:'12px', fontWeight:'bold', color:'#6a1b9a', display:'block', marginBottom:'4px' }}>
+                단위단가 (원/㎥)
+              </label>
+              <div style={{ display:'flex', alignItems:'center', gap:'8px' }}>
+                <input value={activeEntry.unitCost||''} onChange={e=>updateEntry('unitCost',e.target.value)}
+                  style={{ width:'160px', padding:'6px 10px', border:'1px solid #6a1b9a', borderRadius:'4px', fontSize:'14px', textAlign:'right', color:'#6a1b9a', fontWeight:'bold' }}
+                  placeholder="1761000" />
+                <span style={{ fontSize:'12px', color:'#888' }}>원/㎥</span>
+              </div>
+            </div>
+          </div>
+        )
       ) : (
         <div style={{ textAlign:'center', color:'#aaa', padding:'40px' }}>+ 연도/지역 추가 버튼으로 추가하세요</div>
       )}
@@ -4789,13 +4852,28 @@ function SewerModal({ onClose, onApply, archData, incomeData, settingsData, data
   const entries    = sewerRates?.entries || [{ year:'2025', city:'부산', ordinance:'부산광역시 하수도 사용 조례 제10조·제12조', unitCost:'1761000' }];
   const years      = [...new Set(entries.map(e=>e.year))].sort((a,b)=>b-a);
   const selYear    = d.sewerYear || years[0] || '2025';
-  const cities     = entries.filter(e=>e.year===selYear).map(e=>e.city);
+  const cities     = [...new Set(entries.filter(e=>e.year===selYear).map(e=>e.city))];
   const selCity    = d.sewerCity || cities[0] || '부산';
-  const activeEntry = entries.find(e=>e.year===selYear&&e.city===selCity) || entries.find(e=>e.year===selYear) || {};
+  const isSeoulSewer = selCity === '서울';
+
+  // 서울: 처리구역 선택
+  const seoulZones = entries.filter(e=>e.year===selYear && e.city==='서울');
+  const SEOUL_ZONE_INFO = [
+    { zone:'중랑', districts:'종로·중구·용산·성동·광진·동대문·중랑·성북·강북·도봉·노원' },
+    { zone:'난지', districts:'은평·마포·서대문' },
+    { zone:'탄천', districts:'강남·송파·서초·강동' },
+    { zone:'서남', districts:'금천·구로·양천·강서·영등포·동작·관악' },
+  ];
+  const selZone     = d.sewerZone || '서남'; // 기본값: 서남(독산동)
+  const seoulEntry  = seoulZones.find(e=>e.zone===selZone) || seoulZones[0] || {};
+
+  const activeEntry = isSeoulSewer
+    ? seoulEntry
+    : (entries.find(e=>e.year===selYear&&e.city===selCity) || entries.find(e=>e.year===selYear) || {});
   const unitCost   = d.unitCostOverride
     ? parseFloat(String(d.unitCostOverride).replace(/,/g,''))||0
-    : parseFloat(activeEntry.unitCost||'1761000');
-  const ordinance  = activeEntry.ordinance || '하수도 사용 조례';
+    : parseFloat(activeEntry.unitCost||(isSeoulSewer?'1131000':'1761000'));
+  const ordinance  = activeEntry.ordinance || (isSeoulSewer ? '서울특별시 하수도 사용 조례 제30조·제31조' : '하수도 사용 조례');
 
   // 구간표 (수정 가능)
   const bands = d.bands || DEFAULT_SEWER_BANDS;
@@ -4913,9 +4991,33 @@ function SewerModal({ onClose, onApply, archData, incomeData, settingsData, data
                 {cities.map(c=><option key={c} value={c}>{c}</option>)}
               </select>
             </div>
+
+            {/* 서울: 처리구역 선택 */}
+            {isSeoulSewer && (
+              <div>
+                <label style={{ fontSize:'12px', fontWeight:'bold', color:'#555', display:'block', marginBottom:'4px' }}>처리구역</label>
+                <select value={selZone} onChange={e=>update('sewerZone',e.target.value)}
+                  style={{ padding:'6px 10px', border:'1px solid #4a148c', borderRadius:'4px', fontSize:'13px', color:'#4a148c', fontWeight:'bold' }}>
+                  {SEOUL_ZONE_INFO.map(z => {
+                    const entry = seoulZones.find(e=>e.zone===z.zone);
+                    return (
+                      <option key={z.zone} value={z.zone}>
+                        {z.zone} ({entry ? formatNumber(entry.unitCost)+'원/㎥' : '-'})
+                      </option>
+                    );
+                  })}
+                </select>
+                {selZone && (
+                  <div style={{ fontSize:'11px', color:'#888', marginTop:'4px' }}>
+                    관할구: {SEOUL_ZONE_INFO.find(z=>z.zone===selZone)?.districts}
+                  </div>
+                )}
+              </div>
+            )}
+
             <div style={{ fontSize:'12px', color:'#555', lineHeight:'1.8' }}>
               <div>단위단가: <strong style={{ color:'#6a1b9a' }}>{fmtN(unitCost)} 원/㎥</strong></div>
-              <div style={{ fontSize:'11px', color:'#888' }}>{ordinance}</div>
+              <div style={{ fontSize:'11px', color:'#888' }}>{ordinance}{isSeoulSewer ? ` (${selZone} 처리구역)` : ''}</div>
             </div>
             <div style={{ fontSize:'11px', color:'#7b1fa2', backgroundColor:'white', padding:'6px 10px', borderRadius:'4px', border:'1px solid #ce93d8' }}>
               ⚙ 단가/조례 변경은 기준정보(⚙) → 제세금 → 하수도 탭에서
