@@ -4887,22 +4887,14 @@ function SewerModal({ onClose, onApply, archData, incomeData, settingsData, data
   };
 
   // 수입탭 연동 — 타입별 자동구성
-  const aptRows   = incomeData?.aptRows   || [];
-  const offiRows  = incomeData?.offiRows  || [];
-  const storeRows = incomeData?.storeRows || [];
+  const aptRows    = incomeData?.aptRows    || [];
+  const offiRows   = incomeData?.offiRows   || [];
+  const publicRows = incomeData?.publicRows || [];  // 공공주택
+  const storeRows  = incomeData?.storeRows  || [];
+  const pubfacRows = incomeData?.pubfacRows || [];  // 공공시설
 
-  // 주거 타입 rows (수입탭 자동연동 or 직접입력)
-  const autoResRows = [...aptRows, ...offiRows].map(r => ({
-    name:  r.type_name || '',
-    exclM2: parseFloat(String(r.excl_m2||'').replace(/,/g,''))||0,
-    units:  parseFloat(String(r.units||'').replace(/,/g,''))||0,
-  })).filter(r => r.units > 0);
-
-  const resRows = d.resRowsOverride || autoResRows;
-  const updateResRows = (rows) => update('resRowsOverride', rows);
-
-  // 상가 계약면적 자동연동
-  const storeAreaAuto = storeRows.reduce((s,r) => {
+  // 주거 타입 rows — 공동주택 + 오피스텔 + 공공주택 (수입탭 자동연동)
+  const calcContM2Sewer = (r) => {
     const excl=parseFloat(String(r.excl_m2||'').replace(/,/g,''))||0;
     const wall=parseFloat(String(r.wall_m2||'').replace(/,/g,''))||0;
     const core=parseFloat(String(r.core_m2||'').replace(/,/g,''))||0;
@@ -4911,12 +4903,32 @@ function SewerModal({ onClose, onApply, archData, incomeData, settingsData, data
     const park=parseFloat(String(r.park_m2||'').replace(/,/g,''))||0;
     const tel=parseFloat(String(r.tel_m2||'').replace(/,/g,''))||0;
     const elec=parseFloat(String(r.elec_m2||'').replace(/,/g,''))||0;
+    return excl+wall+core+mgmt+comm+park+tel+elec;
+  };
+
+  const autoResRows = [...aptRows, ...offiRows, ...publicRows].map(r => ({
+    name:   r.type || r.type_name || '',  // 수입탭 타입명 그대로
+    exclM2: parseFloat(String(r.excl_m2||'').replace(/,/g,''))||0,
+    units:  parseFloat(String(r.units||'').replace(/,/g,''))||0,
+  })).filter(r => r.units > 0);
+
+  const resRows = d.resRowsOverride || autoResRows;
+  const updateResRows = (rows) => update('resRowsOverride', rows);
+
+  // 비주거 계약면적 — 근린상가 + 공공시설 합산
+  const calcAreaTotal = (rows) => rows.reduce((s,r) => {
     const units=parseFloat(String(r.units||'').replace(/,/g,''))||0;
-    return s + (excl+wall+core+mgmt+comm+park+tel+elec)*units;
+    return s + calcContM2Sewer(r) * units;
   }, 0);
+
+  const storeAreaAuto  = calcAreaTotal(storeRows);
+  const pubfacAreaAuto = calcAreaTotal(pubfacRows);
+  const storeAreaAutoTotal = storeAreaAuto + pubfacAreaAuto;
+  const hasPubfacSewer = pubfacAreaAuto > 0;
+
   const storeArea = d.storeAreaOverride
-    ? parseFloat(String(d.storeAreaOverride).replace(/,/g,''))||storeAreaAuto
-    : storeAreaAuto;
+    ? parseFloat(String(d.storeAreaOverride).replace(/,/g,''))||storeAreaAutoTotal
+    : storeAreaAutoTotal;
 
   // 비주거 용도별 설정
   const largeRate = parseFloat(d.largeRate??'40')||0;
@@ -5073,7 +5085,7 @@ function SewerModal({ onClose, onApply, archData, incomeData, settingsData, data
 
         {/* 주거시설 */}
         <div style={boxStyle}>
-          {stepHd('2', '주거시설 — 공동주택 + 오피스텔 (수입탭 자동연동)')}
+          {stepHd('2', publicRows.length > 0 ? '주거시설 — 공동주택 + 오피스텔 + 공공주택 (수입탭 자동연동)' : '주거시설 — 공동주택 + 오피스텔 (수입탭 자동연동)')}
           <table style={{ width:'100%', borderCollapse:'collapse', fontSize:'12px', marginBottom:'8px' }}>
             <thead>
               <tr style={{ backgroundColor:'#6a1b9a', color:'white' }}>
@@ -5103,16 +5115,22 @@ function SewerModal({ onClose, onApply, archData, incomeData, settingsData, data
 
         {/* 비주거시설 */}
         <div style={boxStyle}>
-          {stepHd('3', '비주거시설 — 근린상가')}
+          {stepHd('3', hasPubfacSewer ? '비주거시설 — 근린상가 + 공공시설' : '비주거시설 — 근린상가')}
           <div style={{ fontSize:'11px', color:'#888', marginBottom:'10px' }}>
             대(60L/㎡): 일반음식점/유흥주점/목욕장 &nbsp;|&nbsp; 중(20L/㎡): 근린생활/판매/사무소/학원
           </div>
           <div style={{ marginBottom:'10px' }}>
-            <div style={{ fontSize:'12px', fontWeight:'bold', color:'#555', marginBottom:'4px' }}>상가 계약면적 (수입탭 자동연동)</div>
-            <div style={{ fontSize:'11px', color:'#2980b9', marginBottom:'4px' }}>자동: {fmtN(storeAreaAuto)}㎡</div>
+            <div style={{ fontSize:'12px', fontWeight:'bold', color:'#555', marginBottom:'4px' }}>
+              {hasPubfacSewer ? '상가 + 공공시설 계약면적 (수입탭 자동연동)' : '상가 계약면적 (수입탭 자동연동)'}
+            </div>
+            <div style={{ fontSize:'11px', color:'#2980b9', marginBottom:'4px' }}>
+              {hasPubfacSewer
+                ? `자동: 근린상가 ${fmtN(storeAreaAuto)}㎡ + 공공시설 ${fmtN(pubfacAreaAuto)}㎡ = ${fmtN(storeAreaAutoTotal)}㎡`
+                : `자동: ${fmtN(storeAreaAuto)}㎡`}
+            </div>
             <div style={{ display:'flex', alignItems:'center', gap:'8px' }}>
               <input value={d.storeAreaOverride||''} onChange={e=>update('storeAreaOverride',e.target.value)}
-                placeholder={`자동: ${fmtN(storeAreaAuto)}㎡`}
+                placeholder={`자동: ${fmtN(storeAreaAutoTotal)}㎡`}
                 style={{ width:'140px', padding:'5px 8px', border:`1px solid ${d.storeAreaOverride?'#e74c3c':'#ddd'}`, borderRadius:'4px', fontSize:'13px', textAlign:'right', backgroundColor:d.storeAreaOverride?'#fdf2f0':'white' }} />
               <span style={{ fontSize:'12px', color:'#888' }}>㎡</span>
               {d.storeAreaOverride && <button onClick={()=>update('storeAreaOverride','')} style={{ padding:'4px 8px', fontSize:'11px', backgroundColor:'#e74c3c', color:'white', border:'none', borderRadius:'3px', cursor:'pointer' }}>자동</button>}
