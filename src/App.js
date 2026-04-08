@@ -18,10 +18,35 @@ function App() {
   const [loading,     setLoading]     = useState(false);
   const [saving,      setSaving]      = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-  const [costResults,      setCostResults]      = useState({}); // 읽기 전용 — Firestore 저장 안 함
-  const [cashFlowResult,   setCashFlowResult]   = useState(null); // 현금유출입 계산기 결과
+  const [costResults,      setCostResults]      = useState({});
+  const [cashFlowResult,   setCashFlowResult]   = useState(null);
+  const [settingsData,     setSettingsData]     = useState({}); // ← 추가
 
   const tabs = ['건축개요', '수입', '분양율', '사업비', '금융', '보고서', '부가세안분'];
+
+  // ── 기준정보 로드 (App 레벨 — Income 등에 공유) ──
+  const loadSettings = async () => {
+    try {
+      const moefSnap = await getDoc(doc(db, 'settings', 'moefStdCost'));
+      const moefCosts = moefSnap.exists() ? (moefSnap.data().items || []) : [
+        { year: '2026', usage: '주거용(아파트 등)',  cost: '860000' },
+        { year: '2026', usage: '상업용(상가 등)',    cost: '860000' },
+        { year: '2026', usage: '공업용(공장 등)',    cost: '840000' },
+        { year: '2026', usage: '문화복지/교육',      cost: '860000' },
+        { year: '2026', usage: '공공용',             cost: '850000' },
+        { year: '2026', usage: '공공건설임대주택 표준건축비(21층이상,60㎡초과)', cost: '1138400' },
+      ];
+      setSettingsData(prev => ({ ...prev, moefCosts }));
+    } catch(e) { console.error('settings load error:', e); }
+  };
+
+  useEffect(() => {
+    loadSettings();
+    // 기준정보 저장 시 재로드
+    const handler = () => loadSettings();
+    window.addEventListener('settings-saved', handler);
+    return () => window.removeEventListener('settings-saved', handler);
+  }, []);
 
   // ── 프로젝트 전체 데이터 로드 ──
   const loadAll = async (proj) => {
@@ -46,7 +71,6 @@ function App() {
   useEffect(() => {
     const handler = () => {
       setActiveTab('금융');
-      // 탭 전환 후 Finance 컴포넌트가 마운트되면 이벤트 발송
       setTimeout(() => {
         window.dispatchEvent(new CustomEvent('open-finance-cost-section'));
       }, 100);
@@ -55,13 +79,12 @@ function App() {
     return () => window.removeEventListener('navigate-to-finance-cost', handler);
   }, []);
 
-  // ── 탭 데이터 업데이트 (각 탭에서 호출) ──
+  // ── 탭 데이터 업데이트 ──
   const updateSheet = (sheetName, data) => {
     setProjectData(prev => ({ ...prev, [sheetName]: data }));
   };
 
   // ── 버전 식별자 계산 ──
-  // 건축개요의 projectName + address + submitTo 조합
   const getVersionLabel = () => {
     const arch      = projectData['건축개요'] || {};
     const projName  = (arch.projectName || '').trim();
@@ -194,6 +217,7 @@ function App() {
             onChange={data => updateSheet('수입', data)}
             onSave={() => saveSheet('수입')}
             saving={saving}
+            settingsData={settingsData}
           />
         )}
         {/* 분양율 — 항상 렌더링, 탭 활성 여부로 표시/숨김 */}
@@ -205,7 +229,6 @@ function App() {
             archData={projectData['건축개요'] || {}}
             onChange={async (data) => {
               updateSheet('분양율', data);
-              // 새 필드가 생기면 Firestore 자동 저장
               const cur = projectData['분양율'] || {};
               const needsSave =
                 (data.aptDepMonthlyVat  && !cur.aptDepMonthlyVat)  ||
@@ -244,7 +267,7 @@ function App() {
             cashFlowResult={cashFlowResult}
           />
         </div>
-        {/* Finance 백그라운드 렌더링 — cashFlowResult를 항상 계산 */}
+        {/* Finance 백그라운드 렌더링 */}
         <div style={{ display: activeTab === '금융' ? 'block' : 'none' }}>
           <Finance
             projectName={project.name}
