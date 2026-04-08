@@ -4663,7 +4663,7 @@ function SewerRateSettings({ sewerRates, setSewerRates, thStyle, tdStyle }) {
   const [selYear, setSelYear] = useState(years[0]||'');
   const activeYear = selYear || years[0] || '';
   const yearEntries = entries.filter(e=>e.year===activeYear);
-  const cities   = yearEntries.map(e=>e.city);
+  const cities   = [...new Set(yearEntries.map(e=>e.city))];
   const [selCity, setSelCity] = useState(cities[0]||'');
   const activeCity  = selCity || cities[0] || '';
   const activeEntry = yearEntries.find(e=>e.city===activeCity) || yearEntries[0] || {};
