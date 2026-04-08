@@ -4172,7 +4172,7 @@ function WaterModal({ onClose, onApply, archData, incomeData, settingsData, data
   const drainType       = d.drainType       || 'nodrain'; // 서울 대규모: nodrain=배수미설치, drain=배수설치
   const resMethod       = d.resMethod       || '1';   // 1=세대당고정(부산), 2=단위사업비×사용량
   const nonResMethod    = d.nonResMethod    || '1';   // 1=구경별고정, 2=단위사업비×사용량
-  const resPipeSizeKey  = d.resPipeSizeKey  || '40';  // 주거용 구경
+  const resPipeSizeKey  = d.resPipeSizeKey  || (isSeoul && bizType !== 'large' ? '20' : '40');  // 주거용 구경 (서울 대규모이외 기본 20mm)
   const nonResPipeSizeKey = d.nonResPipeSizeKey || '40'; // 비주거용 구경
   const pipeSizeKey     = nonResPipeSizeKey; // 하위 호환용
 
@@ -4209,7 +4209,7 @@ function WaterModal({ onClose, onApply, archData, incomeData, settingsData, data
 
   // ══ 부산 중규모 ══
   const resFee1_busan   = 349 * resUnits;  // ① 세대당 고정
-  const resUsePerHH     = (dailyUse / 1000) * avgPerson * peakRate * 0.47;
+  const resUsePerHH     = 0.470; // 고시 세대별 사용량 (부산 중규모 744,000 × 0.470 = 349,680 ≈ 349천원)
   const resFee2_busan   = Math.round(mediumUnit / 1000 * resUsePerHH * resUnits); // ② 단위사업비×사용량
   const pipeUseM3_busan = parseFloat(WATER_PIPE_USE_BUSAN[nonResPipeSizeKey] || '11.22');
   const nonResFee1_busan = parseFloat(medPipes[nonResPipeSizeKey] || '8349');  // ① 구경별 고정
@@ -4379,11 +4379,12 @@ function WaterModal({ onClose, onApply, archData, incomeData, settingsData, data
             {isSeoul && bizType === 'medium' && (
               <>
                 <div style={{ marginBottom:'10px' }}>
-                  <label style={{ fontSize:'12px', fontWeight:'bold', color:'#555', display:'block', marginBottom:'6px' }}>계량기 구경 선택 (주거용)</label>
-                  <select value={resPipeSizeKey} onChange={e => update('resPipeSizeKey', e.target.value)}
+                  <label style={{ fontSize:'12px', fontWeight:'bold', color:'#555', display:'block', marginBottom:'4px' }}>계량기 구경 선택 (주거용)</label>
+                  <div style={{ fontSize:'11px', color:'#888', marginBottom:'6px' }}>💡 공동주택은 보통 20mm 구경 사용</div>
+                  <select value={resPipeSizeKey || '20'} onChange={e => update('resPipeSizeKey', e.target.value)}
                     style={{ padding:'6px 10px', border:'1px solid #1565c0', borderRadius:'4px', fontSize:'13px', color:'#1565c0', fontWeight:'bold' }}>
                     {WATER_PIPE_SIZES_MEDIUM.map(s => (
-                      <option key={s} value={s}>{s}㎜ (가정용: {homePipes[s]||'-'}㎥/일)</option>
+                      <option key={s} value={s}>{s}㎜ (가정용: {homePipes[s]||'-'}㎥/일){s==='20'?' ← 주거 표준':''}</option>
                     ))}
                   </select>
                 </div>
@@ -4419,7 +4420,7 @@ function WaterModal({ onClose, onApply, archData, incomeData, settingsData, data
                   <select value={resPipeSizeKey} onChange={e => update('resPipeSizeKey', e.target.value)}
                     style={{ padding:'6px 10px', border:'1px solid #1565c0', borderRadius:'4px', fontSize:'13px', color:'#1565c0', fontWeight:'bold' }}>
                     {WATER_PIPE_SIZES_MEDIUM.map(s => (
-                      <option key={s} value={s}>{s}㎜ (사용량: {(dailyUse/1000*avgPerson*peakRate*0.47).toFixed(3)}㎥/세대)</option>
+                      <option key={s} value={s}>{s}㎜ (세대별 사용량: 0.470㎥/세대 — 고시)</option>
                     ))}
                   </select>
                 </div>
@@ -4427,7 +4428,7 @@ function WaterModal({ onClose, onApply, archData, incomeData, settingsData, data
                   { val:'1', label:'① 세대당 고정 (349천원/세대)', result: resFee1_busan,
                     desc: `349천원 × ${fmtN(resUnits)}세대 = ${fmtN(resFee1_busan)}천원` },
                   { val:'2', label:'② 단위사업비 × 사용량', result: resFee2_busan,
-                    desc: `${fmtN(mediumUnit)}원/㎥ ÷ 1,000 × ${resUsePerHH.toFixed(3)}㎥/세대 × ${fmtN(resUnits)}세대 = ${fmtN(resFee2_busan)}천원` },
+                    desc: `${fmtN(mediumUnit)}원/㎥ ÷ 1,000 × 0.470㎥/세대 × ${fmtN(resUnits)}세대 = ${fmtN(resFee2_busan)}천원` },
                 ].map(m => (
                   <label key={m.val} style={{ display:'flex', alignItems:'flex-start', gap:'8px', marginBottom:'8px', cursor:'pointer' }}>
                     <input type="radio" name="resMethod" value={m.val} checked={resMethod===m.val} onChange={() => update('resMethod', m.val)} style={{ marginTop:'3px' }} />
@@ -4469,12 +4470,26 @@ function WaterModal({ onClose, onApply, archData, incomeData, settingsData, data
               <label style={{ fontSize:'12px', fontWeight:'bold', color:'#555', display:'block', marginBottom:'6px' }}>계량기 구경 선택 (비주거용)</label>
               <select value={nonResPipeSizeKey} onChange={e => update('nonResPipeSizeKey', e.target.value)}
                 style={{ padding:'6px 10px', border:'1px solid #1565c0', borderRadius:'4px', fontSize:'13px', color:'#1565c0', fontWeight:'bold' }}>
-                {WATER_PIPE_SIZES_MEDIUM.map(s => (
-                  <option key={s} value={s}>
-                    {s}㎜ ({isSeoul ? '비가정용' : '일최대사용량'}: {isSeoul ? (nonHomePipes[s]||'-') : WATER_PIPE_USE_BUSAN[s]}㎥/일)
-                  </option>
-                ))}
+                {WATER_PIPE_SIZES_MEDIUM.map(s => {
+                  const seoulHint = {
+                    '50':'중형 프라자 상가, 5층 규모 메디컬 빌딩',
+                    '80':'주상복합(1~2개동) 상가 전체, 대형 식당가 포함',
+                    '100':'백화점, 대형 마트, 대형 병원, 지식산업센터',
+                    '150':'대형 쇼핑몰(스타필드 등), 랜드마크급 초고층 빌딩',
+                  }[s];
+                  const use = isSeoul ? (nonHomePipes[s]||'-') : WATER_PIPE_USE_BUSAN[s];
+                  return (
+                    <option key={s} value={s}>
+                      {s}㎜ ({isSeoul?'비가정용':'일최대사용량'}: {use}㎥/일){isSeoul && seoulHint ? ` — ${seoulHint}` : ''}
+                    </option>
+                  );
+                })}
               </select>
+              {isSeoul && (
+                <div style={{ marginTop:'6px', fontSize:'11px', color:'#888', backgroundColor:'#f8f9fa', padding:'6px 10px', borderRadius:'4px', lineHeight:'1.7' }}>
+                  💡 구경별 체급 참고: 50mm 중형상가 | 80mm 주상복합상가 전체 | 100mm 백화점·마트·병원 | 150mm 대형쇼핑몰
+                </div>
+              )}
             </div>
             <div style={{ overflowX:'auto', marginBottom:'12px' }}>
               <table style={{ borderCollapse:'collapse', fontSize:'11px' }}>
@@ -4543,23 +4558,12 @@ function WaterModal({ onClose, onApply, archData, incomeData, settingsData, data
 
             {/* 부산 중규모: 구경별 고정 or 단위사업비×사용량 */}
             {!isSeoul && bizType === 'medium' && (
-              <>
-                {[
-                  { val:'1', label:'① 구경별 고정', result: nonResFee1_busan,
-                    desc: `${nonResPipeSizeKey}㎜ 구경 고정금액 = ${fmtN(nonResFee1_busan)}천원 (사용량 ${WATER_PIPE_USE_BUSAN[nonResPipeSizeKey]}㎥/일)` },
-                  { val:'2', label:'② 단위사업비 × 사용량', result: nonResFee2_busan,
-                    desc: `${fmtN(mediumUnit)}원/㎥ ÷ 1,000 × ${WATER_PIPE_USE_BUSAN[nonResPipeSizeKey]}㎥/일 = ${fmtN(nonResFee2_busan)}천원` },
-                ].map(m => (
-                  <label key={m.val} style={{ display:'flex', alignItems:'flex-start', gap:'8px', marginBottom:'8px', cursor:'pointer' }}>
-                    <input type="radio" name="nonResMethod" value={m.val} checked={nonResMethod===m.val} onChange={() => update('nonResMethod', m.val)} style={{ marginTop:'3px' }} />
-                    <div>
-                      <div style={{ fontWeight:'bold', fontSize:'12px', color: nonResMethod===m.val?'#1565c0':'#555' }}>{m.label}</div>
-                      <div style={{ fontSize:'11px', color:'#888', marginTop:'2px' }}>{m.desc}</div>
-                      {nonResMethod===m.val && <div style={{ fontSize:'13px', fontWeight:'bold', color:'#1565c0', marginTop:'4px' }}>→ {fmtN(m.result)} 천원</div>}
-                    </div>
-                  </label>
-                ))}
-              </>
+              <div style={{ backgroundColor:'#e3f2fd', borderRadius:'6px', padding:'10px 14px' }}>
+                <div style={{ fontSize:'11px', color:'#555' }}>
+                  {fmtN(mediumUnit)}원/㎥ ÷ 1,000 × {WATER_PIPE_USE_BUSAN[nonResPipeSizeKey]}㎥/일
+                </div>
+                <div style={{ fontSize:'14px', fontWeight:'bold', color:'#1565c0', marginTop:'4px' }}>→ {fmtN(nonResFee2_busan)} 천원</div>
+              </div>
             )}
           </div>
         )}
