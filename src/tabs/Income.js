@@ -167,7 +167,7 @@ function TypeModal({ title, init, onConfirm, onClose, mode = 'apt' }) {
   );
 }
 
-function IncomeSection({ title, color, rows, onAdd, onEdit, onRemove, mode = 'apt', unit }) {
+function IncomeSection({ title, color, rows, onAdd, onEdit, onRemove, mode = 'apt', unit, stdCostPy }) {
   const total    = rows.reduce((s, r) => s + calcRow(r, mode).total, 0);
   const vatTotal = rows.reduce((s, r) => {
     const c = calcRow(r, mode);
@@ -203,10 +203,17 @@ function IncomeSection({ title, color, rows, onAdd, onEdit, onRemove, mode = 'ap
     <div style={{ marginBottom: '28px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
         <div style={{ fontWeight: 'bold', fontSize: '14px', color: color.main }}>{title}</div>
-        <button onClick={onAdd}
-          style={{ padding: '5px 14px', backgroundColor: color.main, color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '12px' }}>
-          + 타입 추가
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          {stdCostPy && (
+            <span style={{ fontSize: '11px', color: color.header, backgroundColor: color.light, padding: '3px 10px', borderRadius: '10px', border: `1px solid ${color.main}` }}>
+              📋 표준건축비 기준 평당 약 {formatNumber(stdCostPy)}원
+            </span>
+          )}
+          <button onClick={onAdd}
+            style={{ padding: '5px 14px', backgroundColor: color.main, color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '12px' }}>
+            + 타입 추가
+          </button>
+        </div>
       </div>
       <div style={{ overflowX: 'auto', borderRadius: '6px', border: '1px solid #e0e0e0' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
@@ -396,9 +403,30 @@ function BalconySection({ aptRows, publicRows, balcony, onChange, burden, setBur
   );
 }
 
-function Income({ data, onChange, onSave, saving, salesData }) {
+function Income({ data, onChange, onSave, saving, salesData, settingsData }) {
   const aptRows        = data.aptRows    || [];
   const publicRows     = data.publicRows || [];
+
+  // ── 공공건설임대주택 표준건축비 (기준정보 연동) ──
+  // 도시정비법 제55조: 공공주택 분양가 = 공공건설임대주택 표준건축비(국토부 고시)
+  const moefCosts = settingsData?.moefCosts || [];
+  const publicStdCostItem = moefCosts.find(m =>
+    m.usage && m.usage.includes('공공건설임대주택')
+  );
+  // 원/㎡ → 원/평 환산 (÷ 0.3025)
+  const publicStdCostM2 = parseFloat(publicStdCostItem?.cost || '1138400');
+  const publicStdCostPy = Math.round(publicStdCostM2 / 0.3025); // 평당 분양가(원)
+
+  // ── 공공주택 표준건축비 (기준정보 연동) ──
+  // 공공건설임대주택 표준건축비: moefCosts에서 '공공용' 또는 연도별 최신값
+  const moefCosts = settingsData?.moefCosts || [];
+  const years_moef = [...new Set(moefCosts.map(m => m.year))].sort((a,b) => b-a);
+  const latestYear = years_moef[0] || '';
+  // 공공건설임대주택 표준건축비 = '공공용' 항목 (원/㎡)
+  const publicStdCostItem = moefCosts.find(m => m.year === latestYear && m.usage === '공공용');
+  const publicStdCostM2   = parseFloat(publicStdCostItem?.cost || '1138400'); // 1,138,400원/㎡ (21층이상 60㎡초과)
+  // 평당 환산: 원/㎡ ÷ 0.3025 = 원/평 → 천원/평
+  const publicStdCostPy   = Math.round(publicStdCostM2 / 0.3025 / 1000); // 천원/평
   const offiRows       = data.offiRows   || [];
   const storeRows      = data.storeRows  || [];
   const pubfacRows     = data.pubfacRows || [];
@@ -408,6 +436,64 @@ function Income({ data, onChange, onSave, saving, salesData }) {
   const [unit,  setUnit]  = useState('㎡');
 
   const update = (key, val) => onChange({ ...data, [key]: val });
+
+  // ── 공공건설임대주택 표준건축비 (기준정보 연동) ──
+  // 도시정비법 제55조 — 공공주택 분양가 산정기준
+  const moefCosts = settingsData?.moefCosts || [];
+  const publicStdCostItem = moefCosts.find(m => m.usage && m.usage.includes('공공건설임대주택'));
+  const publicStdCostM2   = parseFloat(publicStdCostItem?.cost || '1138400'); // 원/㎡
+  const publicStdCostPy   = Math.round(publicStdCostM2 / 0.3025);             // 원/평 환산
+
+  // ── 공공건설임대주택 표준건축비 (기준정보 연동) ──
+  // 기준정보 > 제세금 > 광역교통부담금 > 공공건설임대주택 표준건축비
+  // 21층 이상, 60㎡ 초과 기준: 1,138,400원/㎡
+  const moefCosts = settingsData?.moefCosts || [];
+  const latestYear = moefCosts.length > 0
+    ? [...new Set(moefCosts.map(m => m.year))].sort((a,b) => b-a)[0]
+    : '';
+  const publicHousingStdCost = (() => {
+    // '공공건설임대주택' 또는 '공공용' 키워드로 찾기
+    const item = moefCosts.find(m =>
+      m.year === latestYear &&
+      (m.usage?.includes('공공건설임대') || m.usage?.includes('공공용'))
+    );
+    return parseFloat(item?.cost || '1138400');
+  })();
+  // 원/㎡ → 원/평 환산 (÷ 0.3025)
+  const publicHousingPyPrice = Math.round(publicHousingStdCost / 0.3025);
+
+  // ── 공공건설임대주택 표준건축비 (기준정보 → 평당 환산) ──
+  const moefCosts = settingsData?.moefCosts || [];
+  const publicStdCostItem = moefCosts.find(m => m.usage && m.usage.includes('공공건설임대주택'));
+  const publicStdCostPerM2 = parseFloat(publicStdCostItem?.cost || '1138400'); // 원/㎡
+  const publicStdCostPerPy = Math.round(publicStdCostPerM2 / 0.3025); // 원/평 환산
+
+  // ── 공공건설임대주택 표준건축비 (기준정보 연동) ──
+  // 기준정보 > 부가세안분 탭 > moefCosts에서 '공공건설임대주택 표준건축비' 항목
+  const moefCosts = settingsData?.moefCosts || [];
+  const publicHousingStdCost = (() => {
+    // 가장 최근 연도의 공공건설임대주택 표준건축비 찾기
+    const items = moefCosts.filter(m => m.usage && m.usage.includes('공공건설임대주택'));
+    if (items.length === 0) return 1138400; // 기본값
+    // 가장 최근 연도
+    const sorted = [...items].sort((a,b) => (b.year||'0').localeCompare(a.year||'0'));
+    return parseFloat(String(sorted[0].cost||'').replace(/,/g,'')) || 1138400;
+  })();
+  // 평당 단가 환산: 원/㎡ ÷ 0.3025 = 원/평
+  const publicHousingPyPrice = Math.round(publicHousingStdCost / 0.3025);
+
+  // ── 공공건설임대주택 표준건축비 (기준정보 연동) ──
+  // 기준정보 > 제세금 > 광역교통부담금 > 공공건설임대주택 표준건축비
+  const moefCosts = settingsData?.moefCosts || [];
+  const publicHousingStdCost = (() => {
+    // 최신 연도의 공공건설임대주택 항목 찾기
+    const years = [...new Set(moefCosts.map(m => m.year))].sort((a,b) => b-a);
+    const latestYear = years[0] || '';
+    const item = moefCosts.find(m => m.year === latestYear && m.usage && m.usage.includes('공공건설임대주택'));
+    return item ? parseFloat(item.cost || '0') : 1138400; // 기본값 1,138,400원/㎡
+  })();
+  // ㎡ → 평 환산: ÷ 0.3025
+  const publicHousingPyPrice = Math.round(publicHousingStdCost / 0.3025);
 
   const sectionKey = (section) => ({
     apt: 'aptRows', public: 'publicRows', offi: 'offiRows',
@@ -609,8 +695,32 @@ function Income({ data, onChange, onSave, saving, salesData }) {
       <IncomeSection title="공동주택" color={COLORS.apt} mode="apt" unit={unit}
         rows={aptRows} onAdd={() => openAdd('apt')} onEdit={i => openEdit('apt', i)} onRemove={i => handleRemove('apt', i)} />
 
-      <IncomeSection title="공공주택" color={COLORS.public} mode="apt" unit={unit}
-        rows={publicRows} onAdd={() => openAdd('public')} onEdit={i => openEdit('public', i)} onRemove={i => handleRemove('public', i)} />
+      {/* 공공주택 — 법령 안내 배너 */}
+      {(() => {
+        // 기준정보에서 공공건설임대주택 표준건축비 조회
+        const moefCosts = settingsData?.moefCosts || [];
+        const years = [...new Set(moefCosts.map(m => m.year))].sort((a,b) => b-a);
+        const latestYear = years[0] || '';
+        const publicStd = moefCosts.find(m => m.year === latestYear && m.usage?.includes('공공건설임대'));
+        const stdCostM2 = parseFloat(publicStd?.cost || '1138400'); // 원/㎡
+        const stdCostPy = Math.round(stdCostM2 / 0.3025); // 원/평 환산
+        return (
+          <div>
+            {/* 안내 배너 */}
+            <div style={{ backgroundColor:'#e8f4fd', border:'1px solid #a9cce3', borderRadius:'6px', padding:'8px 14px', marginBottom:'8px', fontSize:'11px', color:'#1a5276', display:'flex', alignItems:'center', gap:'8px', flexWrap:'wrap' }}>
+              <span style={{ fontWeight:'bold' }}>📋 공공주택 공급가 산정기준 (도시정비법 제55조)</span>
+              <span style={{ color:'#555' }}>— 공공건설임대주택 표준건축비 (국토부 고시)</span>
+              <span style={{ backgroundColor:'#1a5276', color:'white', padding:'2px 8px', borderRadius:'10px', fontWeight:'bold', fontSize:'11px' }}>
+                {latestYear}년 기준: {formatNumber(stdCostM2)}원/㎡ → 평당 약 {formatNumber(stdCostPy)}원
+              </span>
+              <span style={{ color:'#888' }}>※ 국민주택규모 — 부가세 면세</span>
+            </div>
+            <IncomeSection title="공공주택" color={COLORS.public} mode="apt" unit={unit}
+              rows={publicRows} onAdd={() => openAdd('public')} onEdit={i => openEdit('public', i)} onRemove={i => handleRemove('public', i)}
+              stdCostPy={stdCostPy} />
+          </div>
+        );
+      })()}
 
       <BalconySection aptRows={aptRows} publicRows={publicRows}
         balcony={balcony} onChange={val => update('balcony', val)}
