@@ -943,6 +943,8 @@ function Sales({ data, incomeData, archData, onChange, onSave, saving }) {
   const setPublicBalCfg= v => onChange({ ...data, publicBalConfig: v });
 
   const [openSections, setOpenSections] = useState({ apt:true, public:true, balcony:true, publicBal:true, offi:true, store:true, pubfac:true });
+  const [showCrossCheck, setShowCrossCheck] = useState(false);
+  const toggleSection = (key) => setOpenSections(prev => ({ ...prev, [key]: !prev[key] }));
 
   // ── 일반 분양 카테고리 수입 계산 ──
   const calcCatIncome = (cfg, rows, mode, midMs, balMs, sStart) => {
