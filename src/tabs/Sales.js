@@ -97,9 +97,6 @@ const calcRates = (config, totalMonths, salesStartMonth, constructPeriod, prepPe
   return rates;
 };
 
-// ── 소수점 처리 원칙 ──────────────────────────────────────
-// 총액을 먼저 확정(Math.round)하고, 월별 배분 후
-// 마지막 유효 월에서 오차 보정 → 월별 합계 = 총액 항상 보장
 const roundAndFix = (arr, total) => {
   const rounded = arr.map(v => Math.round(v));
   const diff = total - rounded.reduce((s,v)=>s+v,0);
@@ -114,13 +111,12 @@ const roundAndFix = (arr, total) => {
 const calcIncome = (rates, totalUnits, unitPrice, config, midMonths, balMonths, totalMonths) => {
   const depRate = (parseFloat(config.depositRate) || 10) / 100;
   const midN    = parseInt(config.midCount)        || 0;
-  const balN    = parseInt(config.balanceCount)    || 3;
-  // 중도금율 직접 입력, 잔금율 = 1 - 계약금 - 중도금
   const midTot  = config.midRate !== undefined
     ? (parseFloat(config.midRate) || 0) / 100
     : Math.max(0, 1 - depRate - (parseFloat(config.balanceRate)||30)/100);
   const balRate = Math.max(0, 1 - depRate - midTot);
   const mid1    = midN > 0 ? midTot / midN : 0;
+  const balN    = parseInt(config.balanceCount) || 3;
   const bal1    = balRate / balN;
 
   const cumul = rates.reduce((acc, v, i) => { acc.push((acc[i-1]||0)+v); return acc; }, []);
@@ -146,7 +142,6 @@ const calcIncome = (rates, totalUnits, unitPrice, config, midMonths, balMonths, 
     }
   }
 
-  // 총액 먼저 확정 후 월별 보정 → 합계 항상 일치
   const depTotal = Math.round(dep.reduce((s,v)=>s+v,0));
   const midTotal = Math.round(mid.reduce((s,v)=>s+v,0));
   const balTotal = Math.round(bal.reduce((s,v)=>s+v,0));
@@ -180,7 +175,6 @@ const calcBalconyIncome = (rates, totalUnits, unitPrice, depositRate, balMonths,
     }
   }
 
-  // 총액 먼저 확정 후 월별 보정
   const depTotal = Math.round(dep.reduce((s,v)=>s+v,0));
   const balTotal = Math.round(bal.reduce((s,v)=>s+v,0));
   return {
@@ -188,6 +182,68 @@ const calcBalconyIncome = (rates, totalUnits, unitPrice, depositRate, balMonths,
     mid,
     bal: roundAndFix(bal, balTotal),
     cumul,
+  };
+};
+
+// ── 공공주택/공공시설 수입 계산 ──────────────────────────────
+// 계약금: 착공월 일시납
+// 중도금 1차: 공정율 prog1% 달성월 (착공월 + 공사기간 × prog1/100 반올림)
+// 중도금 2차: 공정율 prog2% 달성월
+// 잔금 1차: 준공월
+// 잔금 2차: 준공+1월
+// 금융비 무관 (자치단체 납부)
+const calcPublicMonths = (constructMonth, constructPeriod, junMonth, prog1, prog2) => {
+  const mid1Month = constructMonth + Math.round(constructPeriod * (parseFloat(prog1) || 30) / 100);
+  const mid2Month = constructMonth + Math.round(constructPeriod * (parseFloat(prog2) || 60) / 100);
+  const bal1Month = junMonth;
+  const bal2Month = junMonth + 1;
+  return { mid1Month, mid2Month, bal1Month, bal2Month };
+};
+
+const calcPublicIncome = (totalAmount, cfg, constructMonth, constructPeriod, junMonth, totalMonths) => {
+  const depRate  = (parseFloat(cfg.depositRate)  || 10) / 100;
+  const mid1Rate = (parseFloat(cfg.mid1Rate)     || 20) / 100;
+  const mid2Rate = (parseFloat(cfg.mid2Rate)     || 20) / 100;
+  const bal1Rate = (parseFloat(cfg.bal1Rate)     || 25) / 100;
+  const bal2Rate = Math.max(0, 1 - depRate - mid1Rate - mid2Rate - bal1Rate);
+
+  const { mid1Month, mid2Month, bal1Month, bal2Month } =
+    calcPublicMonths(constructMonth, constructPeriod, junMonth, cfg.prog1, cfg.prog2);
+
+  const dep = Array(totalMonths).fill(0);
+  const mid = Array(totalMonths).fill(0);
+  const bal = Array(totalMonths).fill(0);
+
+  // 계약금: 착공월 일시납
+  if (constructMonth - 1 < totalMonths) dep[constructMonth - 1] = Math.round(totalAmount * depRate);
+  // 중도금 1차
+  if (mid1Month - 1 < totalMonths) mid[mid1Month - 1] = Math.round(totalAmount * mid1Rate);
+  // 중도금 2차
+  if (mid2Month - 1 < totalMonths && mid2Month !== mid1Month)
+    mid[mid2Month - 1] += Math.round(totalAmount * mid2Rate);
+  else if (mid2Month - 1 < totalMonths)
+    mid[mid2Month - 1] += Math.round(totalAmount * mid2Rate);
+  // 잔금 1차
+  if (bal1Month - 1 < totalMonths) bal[bal1Month - 1] = Math.round(totalAmount * bal1Rate);
+  // 잔금 2차
+  if (bal2Month - 1 < totalMonths) bal[bal2Month - 1] = Math.round(totalAmount * bal2Rate);
+
+  // 합계 보정 (반올림 오차 → 잔금 2차에 흡수)
+  const depTotal  = dep.reduce((s,v)=>s+v,0);
+  const midTotal  = mid.reduce((s,v)=>s+v,0);
+  const balTotal  = bal.reduce((s,v)=>s+v,0);
+  const allocated = depTotal + midTotal + balTotal;
+  const diff      = Math.round(totalAmount) - allocated;
+  if (diff !== 0 && bal2Month - 1 < totalMonths) bal[bal2Month - 1] += diff;
+
+  const monthly = dep.map((v,i) => v + mid[i] + bal[i]);
+  return {
+    dep, mid, bal, monthly,
+    depTotal: dep.reduce((s,v)=>s+v,0),
+    midTotal: mid.reduce((s,v)=>s+v,0),
+    balTotal: bal.reduce((s,v)=>s+v,0),
+    total:    monthly.reduce((s,v)=>s+v,0),
+    mid1Month, mid2Month, bal1Month, bal2Month,
   };
 };
 
@@ -227,7 +283,47 @@ function TimelineHeader({ ymList, midMonths, balMonths, constructMonth, junMonth
   );
 }
 
-// ── 분양 조건 (공동주택/오피스텔/근린상가 공통) ────
+// ── 공공주택/공공시설 납부일정 헤더 ──
+function PublicTimelineHeader({ ymList, constructMonth, junMonth, mid1Month, mid2Month, bal1Month, bal2Month }) {
+  const thBase = { padding: '4px 4px', fontSize: '10px', textAlign: 'center', whiteSpace: 'nowrap', borderBottom: '1px solid #ddd', minWidth: '38px' };
+  return (
+    <>
+      <tr>
+        <th style={{ ...thBase, backgroundColor: '#546e7a', color: 'white', textAlign: 'left', minWidth: '70px' }}>년월</th>
+        {ymList.map((ym, i) => {
+          const isC = (i+1) === constructMonth;
+          const isJ = (i+1) === junMonth;
+          return (
+            <th key={i} style={{ ...thBase, backgroundColor: isC?'#e67e22':isJ?'#8e44ad':'#f8f9fa', color: isC||isJ?'white':'#555', fontWeight: isC||isJ?'bold':'normal' }}>
+              {isC ? '착공' : isJ ? '준공' : ym}
+            </th>
+          );
+        })}
+        <th style={{ ...thBase, backgroundColor: '#546e7a', color: '#f5cba7', minWidth: '70px', borderLeft: '2px solid #888' }}>합계</th>
+      </tr>
+      <tr>
+        <th style={{ ...thBase, backgroundColor: '#546e7a', color: 'white', textAlign: 'left' }}>납부일정</th>
+        {ymList.map((_, i) => {
+          const monthNum = i + 1;
+          let label = '';
+          let bg = 'white'; let color = '#ddd';
+          if (monthNum === constructMonth)  { label = '계약금'; bg = '#eaf1f8'; color = '#1a5276'; }
+          if (monthNum === mid1Month)       { label = '중도1';  bg = '#eaf1f8'; color = '#1a5276'; }
+          if (monthNum === mid2Month && mid2Month !== mid1Month) { label = '중도2'; bg = '#eaf1f8'; color = '#1a5276'; }
+          if (monthNum === bal1Month)       { label = '잔금1';  bg = '#d5f5e3'; color = '#1e8449'; }
+          if (monthNum === bal2Month)       { label = '잔금2';  bg = '#d5f5e3'; color = '#1e8449'; }
+          return (
+            <th key={i} style={{ ...thBase, backgroundColor: bg, color, fontWeight: label?'bold':'normal' }}>
+              {label || '-'}
+            </th>
+          );
+        })}
+        <th style={{ ...thBase, backgroundColor: '#546e7a', borderLeft: '2px solid #888' }}></th>
+      </tr>
+    </>
+  );
+}
+
 function SalesCondition({ title, color, config, setConfig }) {
   const depOpts = [5, 10, 15, 20];
   const midOpts = [0, 1, 2, 3, 4, 5, 6];
@@ -318,6 +414,223 @@ function SalesCondition({ title, color, config, setConfig }) {
   );
 }
 
+// ── 공공주택/공공시설 분양조건 컴포넌트 ──────────────────────
+function PublicSalesCondition({ title, color, config, setConfig }) {
+  const depRate  = parseFloat(config.depositRate) || 10;
+  const mid1Rate = parseFloat(config.mid1Rate)    || 20;
+  const mid2Rate = parseFloat(config.mid2Rate)    || 20;
+  const bal1Rate = parseFloat(config.bal1Rate)    || 25;
+  const bal2Rate = Math.max(0, 100 - depRate - mid1Rate - mid2Rate - bal1Rate);
+
+  const numIn = (label, key, value, onChange, hint, readOnly=false) => (
+    <div style={{ display:'flex', flexDirection:'column', gap:'4px' }}>
+      <div style={{ fontSize:'11px', fontWeight:'bold', color:'#555' }}>{label}</div>
+      <div style={{ display:'flex', alignItems:'center', gap:'4px' }}>
+        <input type="number" value={value} readOnly={readOnly}
+          onChange={onChange}
+          style={{ width:'52px', padding:'4px 6px', border:'1px solid #ddd', borderRadius:'4px', fontSize:'12px', textAlign:'right',
+            backgroundColor: readOnly ? '#f0f4f8' : 'white',
+            color: readOnly ? '#1a3a5c' : '#333',
+            fontWeight: readOnly ? 'bold' : 'normal' }} />
+        <span style={{ fontSize:'11px', color:'#888' }}>%</span>
+      </div>
+      {hint && <div style={{ fontSize:'10px', color }}>{hint}</div>}
+    </div>
+  );
+
+  return (
+    <div style={{ backgroundColor:'#f8f9fa', border:'1px solid #e0e0e0', borderRadius:'6px', padding:'14px', marginBottom:'10px' }}>
+      <div style={{ display:'flex', alignItems:'center', gap:'10px', marginBottom:'12px', flexWrap:'wrap' }}>
+        <span style={{ fontWeight:'bold', fontSize:'13px', color }}>{title} — 분양 조건</span>
+        <span style={{ fontSize:'11px', color:'#e74c3c', backgroundColor:'#fdecea', padding:'2px 8px', borderRadius:'10px' }}>
+          자치단체 납부 · 중도금 무이자/유이자 해당없음
+        </span>
+      </div>
+      <div style={{ display:'flex', gap:'16px', flexWrap:'wrap', alignItems:'flex-start' }}>
+        {/* 비율 입력 */}
+        <div style={{ display:'flex', gap:'10px', alignItems:'flex-end', flexWrap:'wrap' }}>
+          {numIn('계약금', 'depositRate', depRate,
+            e => setConfig({...config, depositRate: e.target.value}), '착공월 일시납')}
+          <div style={{ paddingBottom:'20px', color:'#aaa', fontSize:'14px' }}>+</div>
+          {numIn('중도금 1차', 'mid1Rate', mid1Rate,
+            e => setConfig({...config, mid1Rate: e.target.value}), null)}
+          <div style={{ paddingBottom:'20px', color:'#aaa', fontSize:'14px' }}>+</div>
+          {numIn('중도금 2차', 'mid2Rate', mid2Rate,
+            e => setConfig({...config, mid2Rate: e.target.value}), null)}
+          <div style={{ paddingBottom:'20px', color:'#aaa', fontSize:'14px' }}>+</div>
+          {numIn('잔금 1차', 'bal1Rate', bal1Rate,
+            e => setConfig({...config, bal1Rate: e.target.value}), '준공월')}
+          <div style={{ paddingBottom:'20px', color:'#aaa', fontSize:'14px' }}>+</div>
+          {numIn('잔금 2차 (자동)', null, bal2Rate.toFixed(1), null, '준공+1개월', true)}
+          <div style={{ display:'flex', alignItems:'center', marginBottom:'20px' }}>
+            <span style={{ fontSize:'12px', fontWeight:'bold',
+              color: Math.abs(bal2Rate) < 0.1 ? '#27ae60' : bal2Rate < 0 ? '#e74c3c' : '#e67e22' }}>
+              = {(depRate+mid1Rate+mid2Rate+bal1Rate+bal2Rate).toFixed(1)}%
+              {Math.abs(100 - (depRate+mid1Rate+mid2Rate+bal1Rate+bal2Rate)) < 0.1 ? ' ✓' : ' ≠100%'}
+            </span>
+          </div>
+        </div>
+        {/* 공정율 입력 */}
+        <div style={{ borderLeft:'1px solid #e0e0e0', paddingLeft:'16px', display:'flex', flexDirection:'column', gap:'10px' }}>
+          <div style={{ fontSize:'11px', fontWeight:'bold', color:'#555' }}>공정율 기준 (수정 가능)</div>
+          <div style={{ display:'flex', gap:'12px' }}>
+            <div style={{ display:'flex', flexDirection:'column', gap:'4px' }}>
+              <div style={{ fontSize:'11px', color:'#555' }}>중도금 1차 공정율</div>
+              <div style={{ display:'flex', alignItems:'center', gap:'4px' }}>
+                <input type="number" value={config.prog1 || 30}
+                  onChange={e => setConfig({...config, prog1: e.target.value})}
+                  style={{ width:'45px', padding:'4px 6px', border:'1px solid #ddd', borderRadius:'4px', fontSize:'12px', textAlign:'right' }} />
+                <span style={{ fontSize:'11px', color:'#888' }}>%</span>
+              </div>
+            </div>
+            <div style={{ display:'flex', flexDirection:'column', gap:'4px' }}>
+              <div style={{ fontSize:'11px', color:'#555' }}>중도금 2차 공정율</div>
+              <div style={{ display:'flex', alignItems:'center', gap:'4px' }}>
+                <input type="number" value={config.prog2 || 60}
+                  onChange={e => setConfig({...config, prog2: e.target.value})}
+                  style={{ width:'45px', padding:'4px 6px', border:'1px solid #ddd', borderRadius:'4px', fontSize:'12px', textAlign:'right' }} />
+                <span style={{ fontSize:'11px', color:'#888' }}>%</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── 공공주택/공공시설 타임라인 섹션 ──────────────────────────
+function PublicSalesSection({ title, color, totalAmount, cfg, totalMonths, ymList, constructMonth, junMonth, constructPeriod, vatRate }) {
+  if (totalAmount <= 0) return null;
+
+  const inc = calcPublicIncome(totalAmount, cfg, constructMonth, constructPeriod, junMonth, totalMonths);
+  const { dep, mid, bal, monthly, mid1Month, mid2Month, bal1Month, bal2Month } = inc;
+
+  const tdBase = (v) => ({
+    padding:'4px 4px', borderBottom:'1px solid #f0f0f0', fontSize:'11px', textAlign:'right',
+    backgroundColor: v>0?'#f0f7ff':'white', color: v>0?'#1a5276':'#ddd', fontWeight: v>0?'bold':'normal'
+  });
+
+  const grandDep   = dep.reduce((s,v)=>s+v,0);
+  const grandMid   = mid.reduce((s,v)=>s+v,0);
+  const grandBal   = bal.reduce((s,v)=>s+v,0);
+  const grandTotal = monthly.reduce((s,v)=>s+v,0);
+
+  const vat = vatRate > 0 ? (() => {
+    const totalVat = Math.round(grandTotal * vatRate / 100);
+    return roundAndFix(monthly.map(v => v * vatRate / 100), totalVat);
+  })() : null;
+  const grandVat   = vat ? vat.reduce((s,v)=>s+v,0) : 0;
+  const finalTotal = vat ? monthly.map((v,i) => v + vat[i]) : monthly;
+  const grandFinal = grandTotal + grandVat;
+
+  return (
+    <div style={{ marginBottom:'32px' }}>
+      <div style={{ overflowX:'auto', borderRadius:'6px', border:'1px solid #e0e0e0' }}>
+        <table style={{ borderCollapse:'collapse', fontSize:'11px', minWidth:'100%' }}>
+          <thead>
+            <PublicTimelineHeader
+              ymList={ymList} constructMonth={constructMonth} junMonth={junMonth}
+              mid1Month={mid1Month} mid2Month={mid2Month} bal1Month={bal1Month} bal2Month={bal2Month} />
+          </thead>
+          <tbody>
+            {/* 계약금 */}
+            <tr>
+              <td style={{ padding:'4px 6px', fontWeight:'bold', fontSize:'11px', backgroundColor:'#f0f4f8', whiteSpace:'nowrap' }}>계약금</td>
+              {dep.map((v,i) => <td key={i} style={tdBase(v)}>{v>0?formatNumber(Math.round(v)):'-'}</td>)}
+              <td style={{ padding:'4px 6px', backgroundColor:'#f0f4f8', borderLeft:'2px solid #888', textAlign:'right', fontWeight:'bold', fontSize:'11px', color }}>
+                {formatNumber(Math.round(grandDep))}
+              </td>
+            </tr>
+            {/* 중도금 (1차+2차 한 행) */}
+            <tr>
+              <td style={{ padding:'4px 6px', fontWeight:'bold', fontSize:'11px', backgroundColor:'#f0f4f8', whiteSpace:'nowrap' }}>
+                중도금
+                <span style={{ fontSize:'9px', color:'#888', marginLeft:'4px' }}>(1차·2차)</span>
+              </td>
+              {mid.map((v,i) => <td key={i} style={tdBase(v)}>{v>0?formatNumber(Math.round(v)):'-'}</td>)}
+              <td style={{ padding:'4px 6px', backgroundColor:'#f0f4f8', borderLeft:'2px solid #888', textAlign:'right', fontWeight:'bold', fontSize:'11px', color }}>
+                {grandMid > 0 ? formatNumber(Math.round(grandMid)) : '-'}
+              </td>
+            </tr>
+            {/* 잔금 (1차+2차 한 행) */}
+            <tr>
+              <td style={{ padding:'4px 6px', fontWeight:'bold', fontSize:'11px', backgroundColor:'#f0f4f8', whiteSpace:'nowrap' }}>
+                잔금
+                <span style={{ fontSize:'9px', color:'#888', marginLeft:'4px' }}>(1차·2차)</span>
+              </td>
+              {bal.map((v,i) => <td key={i} style={tdBase(v)}>{v>0?formatNumber(Math.round(v)):'-'}</td>)}
+              <td style={{ padding:'4px 6px', backgroundColor:'#f0f4f8', borderLeft:'2px solid #888', textAlign:'right', fontWeight:'bold', fontSize:'11px', color }}>
+                {grandBal > 0 ? formatNumber(Math.round(grandBal)) : '-'}
+              </td>
+            </tr>
+            {/* 합계 */}
+            <tr style={{ borderTop:'2px solid #ccc' }}>
+              <td style={{ padding:'4px 6px', fontWeight:'bold', fontSize:'11px', backgroundColor:'#e8f4fd', whiteSpace:'nowrap', color }}>합계</td>
+              {monthly.map((v,i) => (
+                <td key={i} style={{ ...tdBase(v), backgroundColor:v>0?'#d5eaf7':'white', fontWeight:'bold' }}>
+                  {v>0?formatNumber(Math.round(v)):'-'}
+                </td>
+              ))}
+              <td style={{ padding:'4px 6px', backgroundColor:'#d5eaf7', borderLeft:'2px solid #888', textAlign:'right', fontWeight:'bold', fontSize:'11px', color }}>
+                {formatNumber(Math.round(grandTotal))}
+              </td>
+            </tr>
+            {/* 부가세 (공공시설만) */}
+            {vat && (
+              <tr>
+                <td style={{ padding:'4px 6px', fontWeight:'bold', fontSize:'11px', backgroundColor:'#fef9e7', whiteSpace:'nowrap', color:'#b7770d' }}>
+                  부가세({vatRate}%)
+                </td>
+                {vat.map((v,i) => (
+                  <td key={i} style={{ ...tdBase(v), backgroundColor:v>0?'#fef9e7':'white', color:v>0?'#b7770d':'#ddd', fontWeight:'bold' }}>
+                    {v>0?formatNumber(v):'-'}
+                  </td>
+                ))}
+                <td style={{ padding:'4px 6px', backgroundColor:'#fef9e7', borderLeft:'2px solid #888', textAlign:'right', fontWeight:'bold', fontSize:'11px', color:'#b7770d' }}>
+                  {formatNumber(Math.round(grandVat))}
+                </td>
+              </tr>
+            )}
+            {vat && (
+              <tr style={{ borderTop:'2px solid #f39c12' }}>
+                <td style={{ padding:'4px 6px', fontWeight:'bold', fontSize:'11px', backgroundColor:'#fdebd0', whiteSpace:'nowrap', color:'#b7770d' }}>
+                  최종매출합계
+                </td>
+                {finalTotal.map((v,i) => (
+                  <td key={i} style={{ ...tdBase(v), backgroundColor:v>0?'#fdebd0':'white', color:v>0?'#b7770d':'#ddd', fontWeight:'bold' }}>
+                    {v>0?formatNumber(Math.round(v)):'-'}
+                  </td>
+                ))}
+                <td style={{ padding:'4px 6px', backgroundColor:'#fdebd0', borderLeft:'2px solid #888', textAlign:'right', fontWeight:'bold', fontSize:'11px', color:'#b7770d' }}>
+                  {formatNumber(Math.round(grandFinal))}
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      <div style={{ display:'flex', gap:'12px', marginTop:'10px', flexWrap:'wrap' }}>
+        {[
+          ['계약금', grandDep],
+          ['중도금', grandMid],
+          ['잔금', grandBal],
+          ['총수입', grandTotal],
+          ...(vat ? [['부가세', grandVat], ['최종매출합계', grandFinal]] : []),
+        ].map(([lbl, val]) => (
+          <div key={lbl} style={{ backgroundColor: lbl==='최종매출합계'?'#fdebd0':lbl==='부가세'?'#fef9e7':'#f8f9fa',
+            border:`1px solid ${lbl==='최종매출합계'||lbl==='부가세' ? '#f39c12' : color}`,
+            borderRadius:'6px', padding:'8px 14px', fontSize:'12px' }}>
+            <span style={{ color:'#666' }}>{lbl}: </span>
+            <strong style={{ color: lbl==='최종매출합계'||lbl==='부가세'?'#b7770d':color }}>{formatNumber(Math.round(val))} 천원</strong>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function SalesSection({ title, color, patterns, config, setConfig, isStore, totalMonths, ymList, constructMonth, junMonth, midMonths, balMonths, totalUnits, unitPrice, isBalcony, vatRate, monthly: monthlyFromParent }) {
   const isDirect = config.patternLabel === '직접입력';
   const handlePattern = (label) => {
@@ -334,8 +647,6 @@ function SalesSection({ title, color, patterns, config, setConfig, isStore, tota
     : calcIncome(rates, totalUnits, unitPrice, config, midMonths, balMonths, totalMonths);
 
   const { dep, mid, bal } = incomeResult;
-  // dep/mid/bal이 이미 roundAndFix 적용된 정수 배열
-  // monthly: props로 받은 값 우선, 없으면 dep+mid+bal 합산 (이미 정수 → 오차 없음)
   const total = monthlyFromParent || dep.map((v,i) => v + mid[i] + bal[i]);
 
   const tdBase = (v) => ({ padding:'4px 4px', borderBottom:'1px solid #f0f0f0', fontSize:'11px', textAlign:'right',
@@ -346,7 +657,6 @@ function SalesSection({ title, color, patterns, config, setConfig, isStore, tota
   const grandBal   = bal.reduce((s,v)=>s+v,0);
   const grandTotal = total.reduce((s,v)=>s+v,0);
   const vat = vatRate > 0 ? (() => {
-    // VAT 총액 먼저 확정 후 월별 배분 → roundAndFix
     const totalVat = Math.round(grandTotal * vatRate / 100);
     return roundAndFix(total.map(v => v * vatRate / 100), totalVat);
   })() : null;
@@ -548,31 +858,40 @@ function Sales({ data, incomeData, archData, onChange, onSave, saving }) {
     return fmtYM(ym.year, ym.month);
   });
 
-  const aptRows   = incomeData.aptRows   || [];
-  const offiRows  = incomeData.offiRows  || [];
-  const storeRows = incomeData.storeRows || [];
-  const balcony   = incomeData.balcony   || {};
-
-  // ── 발코니 부담 → 수입탭에서 가져옴 ──
+  const aptRows    = incomeData.aptRows    || [];
+  const publicRows = incomeData.publicRows || [];
+  const offiRows   = incomeData.offiRows   || [];
+  const storeRows  = incomeData.storeRows  || [];
+  const pubfacRows = incomeData.pubfacRows || [];
+  const balcony    = incomeData.balcony    || {};
   const balconyBurden = incomeData.balconyBurden || '분양자 부담';
+
+  // ── 수입탭 각 카테고리 총액 계산 ──
+  const calcRowTotal = (row, mode) => {
+    const excl  = parseFloat(parseNumber(row.excl_m2)) || 0;
+    const wall  = parseFloat(parseNumber(row.wall_m2)) || 0;
+    const core  = parseFloat(parseNumber(row.core_m2)) || 0;
+    const mgmt  = parseFloat(parseNumber(row.mgmt_m2)) || 0;
+    const comm  = parseFloat(parseNumber(row.comm_m2)) || 0;
+    const park  = parseFloat(parseNumber(row.park_m2)) || 0;
+    const tel   = parseFloat(parseNumber(row.tel_m2))  || 0;
+    const elec  = parseFloat(parseNumber(row.elec_m2)) || 0;
+    const units = parseFloat(parseNumber(row.units))   || 0;
+    const pyP   = parseFloat(parseNumber(row.py_price))|| 0;
+    const sup_py  = (excl+wall+core) * 0.3025;
+    const cont_py = (excl+wall+core+mgmt+comm+park+tel+elec) * 0.3025;
+    return mode === 'apt' ? pyP * sup_py * units : pyP * cont_py * units;
+  };
+
+  const aptTotalAmt    = aptRows.reduce((s,r)    => s + calcRowTotal(r, 'apt'),   0);
+  const publicTotalAmt = publicRows.reduce((s,r) => s + calcRowTotal(r, 'apt'),   0);
+  const offiTotalAmt   = offiRows.reduce((s,r)   => s + calcRowTotal(r, 'offi'),  0);
+  const storeTotalAmt  = storeRows.reduce((s,r)  => s + calcRowTotal(r, 'store'), 0);
+  const pubfacTotalAmt = pubfacRows.reduce((s,r) => s + calcRowTotal(r, 'store'), 0);
 
   const getUnitsAndPrice = (rows, mode) => {
     const units = rows.reduce((s, r) => s + (parseFloat(parseNumber(r.units))||0), 0);
-    const total = rows.reduce((s, r) => {
-      const excl = parseFloat(parseNumber(r.excl_m2))||0;
-      const wall = parseFloat(parseNumber(r.wall_m2))||0;
-      const core = parseFloat(parseNumber(r.core_m2))||0;
-      const mgmt = parseFloat(parseNumber(r.mgmt_m2))||0;
-      const comm = parseFloat(parseNumber(r.comm_m2))||0;
-      const park = parseFloat(parseNumber(r.park_m2))||0;
-      const tel  = parseFloat(parseNumber(r.tel_m2)) ||0;
-      const elec = parseFloat(parseNumber(r.elec_m2))||0;
-      const sup_py  = (excl+wall+core) * 0.3025;
-      const cont_py = (excl+wall+core+mgmt+comm+park+tel+elec) * 0.3025;
-      const py_price = parseFloat(parseNumber(r.py_price))||0;
-      const u = mode==='apt' ? py_price*sup_py : py_price*cont_py;
-      return s + u * (parseFloat(parseNumber(r.units))||0);
-    }, 0);
+    const total = rows.reduce((s, r) => s + calcRowTotal(r, mode), 0);
     return { units, unitPrice: units > 0 ? total/units : 0 };
   };
 
@@ -588,27 +907,33 @@ function Sales({ data, incomeData, archData, onChange, onSave, saving }) {
   const offi  = getUnitsAndPrice(offiRows,  'offi');
   const store = getUnitsAndPrice(storeRows, 'store');
 
-  const defApt   = { patternLabel:'3개월 40% 15개월 완판', m1:0.20, m2:0.10, m3:0.10, endMonth:15, depositRate:10, midCount:6, midFree:true, midBeforeEnd:3, midRate:60, balanceCount:3, salesStartOffset:0 };
+  // ── 기본 config ──
+  const defApt     = { patternLabel:'3개월 40% 15개월 완판', m1:0.20, m2:0.10, m3:0.10, endMonth:15, depositRate:10, midCount:6, midFree:true, midBeforeEnd:3, midRate:60, balanceCount:3, salesStartOffset:0 };
   const defBalcony = { patternLabel:'3개월 40% 15개월 완판', m1:0.20, m2:0.10, m3:0.10, endMonth:15, depositRate:10, midFree:true, midBeforeEnd:3, balanceRate:30, balanceCount:3, salesStartOffset:0 };
-  const balconyCfg = { ...defBalcony, ...(data.balconyConfig || {}) };
+  const defOffi    = { patternLabel:'3개월 40% 18개월 완판', m1:0.20, m2:0.10, m3:0.10, endMonth:18, depositRate:10, midCount:6, midFree:true, midBeforeEnd:3, midRate:60, balanceCount:3, salesStartOffset:0 };
+  const defStore   = { patternLabel:'3개월 40%', m1:0.20, m2:0.10, m3:0.10, storeStartBefore:'9', storeEndAfter:'4', depositRate:10, midCount:0, midFree:false, midBeforeEnd:3, midRate:0, balanceCount:3 };
+  // 공공주택/공공시설 기본 config
+  const defPublic  = { depositRate:10, mid1Rate:20, mid2Rate:20, bal1Rate:25, prog1:30, prog2:60 };
+
+  const aptCfg     = { ...defApt,    ...(data.aptConfig     || {}) };
+  const balconyCfg = { ...defBalcony,...(data.balconyConfig  || {}) };
+  const offiCfg    = { ...defOffi,   ...(data.offiConfig    || {}) };
+  const storeCfg   = { ...defStore,  ...(data.storeConfig   || {}) };
+  const publicCfg  = { ...defPublic, ...(data.publicConfig  || {}) };
+  const pubfacCfg  = { ...defPublic, ...(data.pubfacConfig  || {}) };
+
+  const setAptCfg     = v => onChange({ ...data, aptConfig:    v });
   const setBalconyCfg = v => onChange({ ...data, balconyConfig: v });
-  const defOffi  = { patternLabel:'3개월 40% 18개월 완판', m1:0.20, m2:0.10, m3:0.10, endMonth:18, depositRate:10, midCount:6, midFree:true, midBeforeEnd:3, midRate:60, balanceCount:3, salesStartOffset:0 };
-  const defStore = { patternLabel:'3개월 40%', m1:0.20, m2:0.10, m3:0.10, storeStartBefore:'9', storeEndAfter:'4', depositRate:10, midCount:0, midFree:false, midBeforeEnd:3, midRate:0, balanceCount:3 };
+  const setOffiCfg    = v => onChange({ ...data, offiConfig:   v });
+  const setStoreCfg   = v => onChange({ ...data, storeConfig:  v });
+  const setPublicCfg  = v => onChange({ ...data, publicConfig: v });
+  const setPubfacCfg  = v => onChange({ ...data, pubfacConfig: v });
 
-  const aptCfg   = { ...defApt,   ...(data.aptConfig   || {}) };
-  const offiCfg  = { ...defOffi,  ...(data.offiConfig  || {}) };
-  const storeCfg = { ...defStore, ...(data.storeConfig || {}) };
-
-  const setAptCfg   = v => onChange({ ...data, aptConfig:   v });
-  const setOffiCfg  = v => onChange({ ...data, offiConfig:  v });
-  const setStoreCfg = v => onChange({ ...data, storeConfig: v });
-
-  // ── 섹션 접기/펼치기 ──
-  const [openSections, setOpenSections] = useState({ apt:true, balcony:true, offi:true, store:true });
+  const [openSections, setOpenSections] = useState({ apt:true, public:true, balcony:true, offi:true, store:true, pubfac:true });
   const [showCrossCheck, setShowCrossCheck] = useState(false);
   const toggleSection = (key) => setOpenSections(prev => ({ ...prev, [key]: !prev[key] }));
 
-  // ── 카테고리별 수입 계산 (요약 테이블용) ──
+  // ── 일반 분양 카테고리 수입 계산 ──
   const calcCatIncome = (cfg, rows, mode, midMs, balMs, sStart) => {
     const { units, unitPrice } = getUnitsAndPrice(rows, mode);
     if (units === 0) return {
@@ -620,21 +945,14 @@ function Sales({ data, incomeData, archData, onChange, onSave, saving }) {
     };
     const rates = calcRates(cfg, totalMonths, sStart, 0, 0, mode==='store');
     const inc   = calcIncome(rates, units, unitPrice, cfg, midMs, balMs, totalMonths);
-
-    // calcIncome이 이미 roundAndFix 적용 — 정수 배열
-    const depMonthly = inc.dep;   // 이미 보정된 정수 배열
+    const depMonthly = inc.dep;
     const midMonthly = inc.mid;
     const balMonthly = inc.bal;
-
-    // 총액 = 월별 합산 (이미 정수이므로 정확)
     const dep   = depMonthly.reduce((s,v)=>s+v,0);
     const mid   = midMonthly.reduce((s,v)=>s+v,0);
     const bal   = balMonthly.reduce((s,v)=>s+v,0);
     const total = dep + mid + bal;
-
-    // monthly = dep+mid+bal 월별 합산 (이미 정수 → 오차 없음)
     const monthly = depMonthly.map((v,i) => v + midMonthly[i] + balMonthly[i]);
-
     return { dep, mid, bal, total, monthly, depMonthly, midMonthly, balMonthly };
   };
 
@@ -650,28 +968,19 @@ function Sales({ data, incomeData, archData, onChange, onSave, saving }) {
   const offiBal  = calcBalMonths(prepPeriod, constructPeriod, offiCfg.balanceCount);
   const storeBal = calcBalMonths(prepPeriod, constructPeriod, storeCfg.balanceCount);
 
-  const aptSalesStartFull  = constructMonth + (parseInt(aptCfg.salesStartOffset)  || 0);
-  const offiSalesStartFull = constructMonth + (parseInt(offiCfg.salesStartOffset) || 0);
-  const aptInc   = calcCatIncome(aptCfg,   aptRows,   'apt',   aptMid,      aptBal,      aptSalesStartFull);
+  const aptInc   = calcCatIncome(aptCfg,   aptRows,   'apt',   aptMid,   aptBal,   aptSalesStart);
+  const offiInc  = calcCatIncome(offiCfg,  offiRows,  'offi',  offiMid,  offiBal,  offiSalesStart);
+  const storeInc = calcCatIncome(storeCfg, storeRows, 'store', storeMid, storeBal, constructMonth);
 
-  // 공동주택 부가세: 전용면적 85㎡ 초과 세대의 분양매출액 × 10%
-  const aptOverSalesTotal = aptRows.reduce((s, r) => {
-    const excl  = parseFloat(parseNumber(r.excl_m2))||0;
-    if (excl <= 85) return s;
-    const wall  = parseFloat(parseNumber(r.wall_m2))||0;
-    const core  = parseFloat(parseNumber(r.core_m2))||0;
-    const units = parseFloat(parseNumber(r.units))||0;
-    const pyPrice = parseFloat(parseNumber(r.py_price))||0;
-    const supPy = (excl + wall + core) * 0.3025;
-    return s + pyPrice * supPy * units;
-  }, 0);
-  // 월별 배분용 비율 (전체 apt 매출 대비 85㎡ 초과 비율)
-  const aptVatRatio = aptInc.total > 0 ? aptOverSalesTotal / aptInc.total : 0;
-  const balInc   = (balUnits > 0 && balconyBurden === '분양자 부담')
+  // ── 공공주택/공공시설 수입 계산 ──
+  const publicInc = calcPublicIncome(Math.round(publicTotalAmt), publicCfg, constructMonth, constructPeriod, junMonth, totalMonths);
+  const pubfacInc = calcPublicIncome(Math.round(pubfacTotalAmt), pubfacCfg, constructMonth, constructPeriod, junMonth, totalMonths);
+
+  // ── 발코니 ──
+  const balInc = (balUnits > 0 && balconyBurden === '분양자 부담')
     ? (() => {
         const rates = calcRates(balconyCfg, totalMonths, constructMonth+(parseInt(balconyCfg.salesStartOffset)||0), 0, 0, false);
         const inc   = calcBalconyIncome(rates, balUnits, balUnits>0?balTotal/balUnits:0, balconyCfg.depositRate, balconyBal, totalMonths);
-        // calcBalconyIncome이 이미 roundAndFix 적용 — 정수 배열
         const depMonthly = inc.dep;
         const balMonthly = inc.bal;
         const dep   = depMonthly.reduce((s,v)=>s+v,0);
@@ -680,23 +989,43 @@ function Sales({ data, incomeData, archData, onChange, onSave, saving }) {
         return { dep, mid:0, bal:bal2, total:dep+bal2, monthly, depMonthly, midMonthly: Array(totalMonths).fill(0), balMonthly };
       })()
     : null;
-  const offiInc  = calcCatIncome(offiCfg,  offiRows,  'offi',  offiMid,     offiBal,     offiSalesStartFull);
-  const storeInc = calcCatIncome(storeCfg, storeRows, 'store', storeMid,    storeBal,    constructMonth);
 
-  // VAT: 총액 먼저 확정 후 월별 배분 → roundAndFix
+  // ── 공동주택 부가세 (85㎡ 초과분) ──
+  const aptOverSalesTotal = aptRows.reduce((s, r) => {
+    const excl = parseFloat(parseNumber(r.excl_m2))||0;
+    if (excl <= 85) return s;
+    const wall = parseFloat(parseNumber(r.wall_m2))||0;
+    const core = parseFloat(parseNumber(r.core_m2))||0;
+    const units = parseFloat(parseNumber(r.units))||0;
+    const pyP = parseFloat(parseNumber(r.py_price))||0;
+    return s + pyP * (excl+wall+core) * 0.3025 * units;
+  }, 0);
+  const aptVatRatio = aptInc.total > 0 ? aptOverSalesTotal / aptInc.total : 0;
+
+  // ── VAT 월별 계산 ──
   const aptVatTotal   = Math.round(aptInc.total * aptVatRatio * 0.1);
   const offiVatTotal  = Math.round(offiInc.total * 0.1);
   const storeVatTotal = Math.round(storeInc.total * 0.1);
-  const aptVat    = roundAndFix(aptInc.monthly.map(v => v * aptVatRatio * 0.1),   aptVatTotal);
-  const offiVat   = roundAndFix(offiInc.monthly.map(v => v * 0.1),                offiVatTotal);
-  const storeVat  = roundAndFix(storeInc.monthly.map(v => v * 0.1),               storeVatTotal);
+  const pubfacVatTotal = Math.round(pubfacInc.total * 0.1);
+
+  const aptVat    = roundAndFix(aptInc.monthly.map(v => v * aptVatRatio * 0.1),  aptVatTotal);
+  const offiVat   = roundAndFix(offiInc.monthly.map(v => v * 0.1),               offiVatTotal);
+  const storeVat  = roundAndFix(storeInc.monthly.map(v => v * 0.1),              storeVatTotal);
+  const pubfacVat = roundAndFix(pubfacInc.monthly.map(v => v * 0.1),             pubfacVatTotal);
+
   const allMonthly = ymList.map((_,i) =>
-    (aptInc.monthly[i]||0) + (balInc?.monthly[i]||0) + (offiInc.monthly[i]||0) + (storeInc.monthly[i]||0)
+    (aptInc.monthly[i]||0) + (publicInc.monthly[i]||0) + (balInc?.monthly[i]||0) +
+    (offiInc.monthly[i]||0) + (storeInc.monthly[i]||0) + (pubfacInc.monthly[i]||0)
   );
-  const allVat = aptVat.map((v,i) => v + offiVat[i] + storeVat[i]);
+  const allVat = aptVat.map((v,i) => v + offiVat[i] + storeVat[i] + pubfacVat[i]);
   const allFinal = allMonthly.map((v,i) => v + allVat[i]);
 
-  // ── vatByMonth + 크로스체크용 데이터 자동 저장 ──
+  const sumAptVat    = aptVat.reduce((s,v)=>s+v,0);
+  const sumOffiVat   = offiVat.reduce((s,v)=>s+v,0);
+  const sumStoreVat  = storeVat.reduce((s,v)=>s+v,0);
+  const sumPubfacVat = pubfacVat.reduce((s,v)=>s+v,0);
+
+  // ── useEffect: vatByMonth 등 자동 저장 ──
   useEffect(() => {
     if (!onChange) return;
     const vatByMonth = {};
@@ -706,103 +1035,119 @@ function Sales({ data, incomeData, archData, onChange, onSave, saving }) {
     const newData = {
       ...data,
       vatByMonth,
-      // 크로스체크용: 수입요약 합계
       salesSumApt:      aptInc.total,
+      salesSumPublic:   publicInc.total,
       salesSumBal:      balInc?.total || 0,
       salesSumOffi:     offiInc.total,
       salesSumStore:    storeInc.total,
+      salesSumPubfac:   pubfacInc.total,
       salesSumAptVat:   Math.round(aptOverSalesTotal * 0.1),
       salesSumOffiVat:  Math.round(offiInc.total * 0.1),
       salesSumStoreVat: Math.round(storeInc.total * 0.1),
-      // 크로스체크용: 타임라인 합계
+      salesSumPubfacVat: Math.round(pubfacInc.total * 0.1),
       timelineApt:      aptInc.monthly.reduce((s,v)=>s+v,0),
+      timelinePublic:   publicInc.monthly.reduce((s,v)=>s+v,0),
       timelineBal:      (balInc?.monthly||[]).reduce((s,v)=>s+v,0),
       timelineOffi:     offiInc.monthly.reduce((s,v)=>s+v,0),
       timelineStore:    storeInc.monthly.reduce((s,v)=>s+v,0),
+      timelinePubfac:   pubfacInc.monthly.reduce((s,v)=>s+v,0),
       timelineAptVat:   Math.round(aptOverSalesTotal * 0.1),
       timelineOffiVat:  Math.round(offiInc.total * 0.1),
       timelineStoreVat: Math.round(storeInc.total * 0.1),
-      // ── 분양금 배분용: 월별 계약금/중도금/잔금 배열 (공급가) ──
+      timelinePubfacVat: Math.round(pubfacInc.total * 0.1),
       ymList,
       junMonth:          Math.round(junMonth),
       constructMonth:    Math.round(constructMonth),
-      // 월별 합계 (dep+mid+bal, 이미 정수 — 원천 그대로)
-      aptMonthly:      aptInc.monthly,
-      balconyMonthly:  balInc?.monthly  || [],
-      offiMonthly2:    offiInc.monthly,   // offiMonthly는 VAT용으로 쓰이므로 offiMonthly2 사용
-      // 월별 계약금/중도금/잔금
-      aptDepMonthly:   aptInc.depMonthly,
-      aptMidMonthly:   aptInc.midMonthly,
-      aptBalMonthly:   aptInc.balMonthly,
-      balDepMonthly:   balInc?.depMonthly  || [],
-      balBalMonthly:   balInc?.balMonthly  || [],
-      offiDepMonthly:  offiInc.depMonthly,
-      offiMidMonthly:  offiInc.midMonthly,
-      offiBalMonthly:  offiInc.balMonthly,
-      storeMonthly:    storeInc.monthly,
-      storeDepMonthly: storeInc.depMonthly,
-      storeMidMonthly: storeInc.midMonthly,
-      storeBalMonthly: storeInc.balMonthly,
-      // ── 월별 분양율 (0~1 소수) ──
-      aptRateMonthly:   calcRates(aptCfg,   totalMonths, aptSalesStartFull,  constructPeriod, prepPeriod, false),
-      offiRateMonthly:  calcRates(offiCfg,  totalMonths, offiSalesStartFull, constructPeriod, prepPeriod, false),
-      storeRateMonthly: calcRates(storeCfg, totalMonths, constructMonth,     constructPeriod, prepPeriod, true),
-      // ── 월별 VAT (공급가 기준) ──
-      aptVatMonthly:   aptVat,
-      offiVatMonthly:  offiVat,
-      storeVatMonthly: storeVat,
-      aptVatRatioSaved: aptVatRatio,
-      // ── 분양조건 ──
-      aptCfgSaved:     { depositRate: aptCfg.depositRate, midCount: aptCfg.midCount, midRate: aptCfg.midRate ?? 60, balanceCount: aptCfg.balanceCount },
-      balConyCfgSaved: { depositRate: balconyCfg.depositRate, balanceCount: balconyCfg.balanceCount },
-      offiCfgSaved:    { depositRate: offiCfg.depositRate, midCount: offiCfg.midCount, midRate: offiCfg.midRate ?? 60, balanceCount: offiCfg.balanceCount },
-      storeCfgSaved:   { depositRate: storeCfg.depositRate, midCount: storeCfg.midCount, midRate: storeCfg.midRate ?? 0, balanceCount: storeCfg.balanceCount },
-      // ── VAT 포함 월별 배열 — roundAndFix 적용 (원천과 항상 일치) ──
-      // 공동주택: 계약금/중도금/잔금 각각 총액 확정 후 월별 보정
+      aptMonthly:        aptInc.monthly,
+      publicMonthly:     publicInc.monthly,
+      balconyMonthly:    balInc?.monthly  || [],
+      offiMonthly2:      offiInc.monthly,
+      storeMonthly:      storeInc.monthly,
+      pubfacMonthly:     pubfacInc.monthly,
+      aptDepMonthly:     aptInc.depMonthly,
+      aptMidMonthly:     aptInc.midMonthly,
+      aptBalMonthly:     aptInc.balMonthly,
+      publicDepMonthly:  publicInc.dep,
+      publicMidMonthly:  publicInc.mid,
+      publicBalMonthly:  publicInc.bal,
+      pubfacDepMonthly:  pubfacInc.dep,
+      pubfacMidMonthly:  pubfacInc.mid,
+      pubfacBalMonthly:  pubfacInc.bal,
+      balDepMonthly:     balInc?.depMonthly  || [],
+      balBalMonthly:     balInc?.balMonthly  || [],
+      offiDepMonthly:    offiInc.depMonthly,
+      offiMidMonthly:    offiInc.midMonthly,
+      offiBalMonthly:    offiInc.balMonthly,
+      storeDepMonthly:   storeInc.depMonthly,
+      storeMidMonthly:   storeInc.midMonthly,
+      storeBalMonthly:   storeInc.balMonthly,
+      aptVatMonthly:     aptVat,
+      offiVatMonthly:    offiVat,
+      storeVatMonthly:   storeVat,
+      pubfacVatMonthly:  pubfacVat,
+      aptRateMonthly:    calcRates(aptCfg,   totalMonths, aptSalesStart,  constructPeriod, prepPeriod, false),
+      offiRateMonthly:   calcRates(offiCfg,  totalMonths, offiSalesStart, constructPeriod, prepPeriod, false),
+      storeRateMonthly:  calcRates(storeCfg, totalMonths, constructMonth, constructPeriod, prepPeriod, true),
+      aptVatRatioSaved:  aptVatRatio,
+      aptCfgSaved:       { depositRate: aptCfg.depositRate, midCount: aptCfg.midCount, midRate: aptCfg.midRate ?? 60, balanceCount: aptCfg.balanceCount },
+      balConyCfgSaved:   { depositRate: balconyCfg.depositRate, balanceCount: balconyCfg.balanceCount },
+      offiCfgSaved:      { depositRate: offiCfg.depositRate, midCount: offiCfg.midCount, midRate: offiCfg.midRate ?? 60, balanceCount: offiCfg.balanceCount },
+      storeCfgSaved:     { depositRate: storeCfg.depositRate, midCount: storeCfg.midCount, midRate: storeCfg.midRate ?? 0, balanceCount: storeCfg.balanceCount },
+      // 공공주택/공공시설은 금융비 제외 표시용
+      publicCfgSaved:    { depositRate: publicCfg.depositRate, mid1Rate: publicCfg.mid1Rate, mid2Rate: publicCfg.mid2Rate, bal1Rate: publicCfg.bal1Rate },
+      pubfacCfgSaved:    { depositRate: pubfacCfg.depositRate, mid1Rate: pubfacCfg.mid1Rate, mid2Rate: pubfacCfg.mid2Rate, bal1Rate: pubfacCfg.bal1Rate },
       aptDepMonthlyVat:  roundAndFix(aptInc.depMonthly.map(v => v * (1 + aptVatRatio * 0.1)), Math.round(aptInc.dep * (1 + aptVatRatio * 0.1))),
       aptMidMonthlyVat:  roundAndFix(aptInc.midMonthly.map(v => v * (1 + aptVatRatio * 0.1)), Math.round(aptInc.mid * (1 + aptVatRatio * 0.1))),
       aptBalMonthlyVat:  roundAndFix(aptInc.balMonthly.map(v => v * (1 + aptVatRatio * 0.1)), Math.round(aptInc.bal * (1 + aptVatRatio * 0.1))),
-      // 발코니확장: 면세 (그대로)
       balDepMonthlyVat:  balInc?.depMonthly || [],
       balBalMonthlyVat:  balInc?.balMonthly || [],
-      // 오피스텔: 전체 10% — 총액 확정 후 월별 보정
       offiDepMonthlyVat: roundAndFix(offiInc.depMonthly.map(v => v * 1.1), Math.round(offiInc.dep * 1.1)),
       offiMidMonthlyVat: roundAndFix(offiInc.midMonthly.map(v => v * 1.1), Math.round(offiInc.mid * 1.1)),
       offiBalMonthlyVat: roundAndFix(offiInc.balMonthly.map(v => v * 1.1), Math.round(offiInc.bal * 1.1)),
-      // 근린상가: 전체 10% — 총액 확정 후 월별 보정
-      storeDepMonthlyVat: roundAndFix(storeInc.depMonthly.map(v => v * 1.1), Math.round(storeInc.dep * 1.1)),
-      storeMidMonthlyVat: roundAndFix(storeInc.midMonthly.map(v => v * 1.1), Math.round(storeInc.mid * 1.1)),
-      storeBalMonthlyVat: roundAndFix(storeInc.balMonthly.map(v => v * 1.1), Math.round(storeInc.bal * 1.1)),
-      storeMonthlyVat:    roundAndFix(storeInc.monthly.map(v => v * 1.1),    Math.round(storeInc.total * 1.1)),
+      storeDepMonthlyVat:  roundAndFix(storeInc.depMonthly.map(v => v * 1.1), Math.round(storeInc.dep * 1.1)),
+      storeMidMonthlyVat:  roundAndFix(storeInc.midMonthly.map(v => v * 1.1), Math.round(storeInc.mid * 1.1)),
+      storeBalMonthlyVat:  roundAndFix(storeInc.balMonthly.map(v => v * 1.1), Math.round(storeInc.bal * 1.1)),
+      storeMonthlyVat:     roundAndFix(storeInc.monthly.map(v => v * 1.1),    Math.round(storeInc.total * 1.1)),
+      pubfacDepMonthlyVat: roundAndFix(pubfacInc.dep.map(v => v * 1.1), Math.round(pubfacInc.depTotal * 1.1)),
+      pubfacMidMonthlyVat: roundAndFix(pubfacInc.mid.map(v => v * 1.1), Math.round(pubfacInc.midTotal * 1.1)),
+      pubfacBalMonthlyVat: roundAndFix(pubfacInc.bal.map(v => v * 1.1), Math.round(pubfacInc.balTotal * 1.1)),
+      pubfacMonthlyVat:    roundAndFix(pubfacInc.monthly.map(v => v * 1.1), Math.round(pubfacInc.total * 1.1)),
     };
-    // 이전 값과 다를 때만 저장
-    const keys = ['vatByMonth','salesSumApt','salesSumOffi','salesSumStore',
-      'timelineApt','timelineOffi','timelineStore',
+    const keys = ['vatByMonth','salesSumApt','salesSumPublic','salesSumOffi','salesSumStore','salesSumPubfac',
+      'timelineApt','timelinePublic','timelineOffi','timelineStore','timelinePubfac',
       'aptDepMonthly','aptMidMonthly','aptBalMonthly',
-      'offiDepMonthly','offiMidMonthly','offiBalMonthly','storeMonthly',
+      'publicDepMonthly','publicMidMonthly','publicBalMonthly',
+      'pubfacDepMonthly','pubfacMidMonthly','pubfacBalMonthly',
+      'offiDepMonthly','offiMidMonthly','offiBalMonthly',
       'storeDepMonthly','storeMidMonthly','storeBalMonthly',
-      'aptVatMonthly','offiVatMonthly','storeVatMonthly',
-      'aptRateMonthly','offiRateMonthly','storeRateMonthly',
-      'aptCfgSaved','offiCfgSaved','storeCfgSaved'];
-    // 새 필드가 아예 없으면(첫 저장) 무조건 저장
+      'aptVatMonthly','offiVatMonthly','storeVatMonthly','pubfacVatMonthly'];
     const isFirstSave = !data?.storeDepMonthly && !data?.aptVatMonthly;
     const changed = isFirstSave || keys.some(k => JSON.stringify(data?.[k]) !== JSON.stringify(newData[k]));
     if (changed) onChange(newData);
-  }, [JSON.stringify(allVat), JSON.stringify(ymList), aptInc.total, offiInc.total, storeInc.total, // eslint-disable-line
+  }, [JSON.stringify(allVat), JSON.stringify(ymList), // eslint-disable-line
+      aptInc.total, publicInc.total, offiInc.total, storeInc.total, pubfacInc.total,
       JSON.stringify(aptInc.depMonthly), JSON.stringify(aptInc.midMonthly), JSON.stringify(aptInc.balMonthly),
+      JSON.stringify(publicInc.dep), JSON.stringify(publicInc.mid), JSON.stringify(publicInc.bal),
       JSON.stringify(offiInc.depMonthly), JSON.stringify(offiInc.midMonthly), JSON.stringify(offiInc.balMonthly),
-      JSON.stringify(storeInc.monthly), JSON.stringify(storeInc.depMonthly)]);
+      JSON.stringify(storeInc.monthly), JSON.stringify(storeInc.depMonthly),
+      JSON.stringify(pubfacInc.dep), JSON.stringify(pubfacInc.mid), JSON.stringify(pubfacInc.bal)]);
 
+  // ── 수입 요약 catRows (순서: 공동주택→공공주택→발코니→오피스텔→근린상가→공공시설) ──
   const catRows = [
-    { label:'공동주택',  color:'#3d6a99', dep:aptInc.dep,   mid:aptInc.mid,   bal:aptInc.bal,   total:aptInc.total,
+    { label:'공동주택',  color:'#3d6a99', dep:aptInc.dep,       mid:aptInc.mid,      bal:aptInc.bal,      total:aptInc.total,
       vat: Math.round(aptOverSalesTotal * 0.1),
-      vatNote: aptOverSalesTotal > 0 ? `85㎡초과 ${formatNumber(Math.round(aptOverSalesTotal))}천` : '없음' },
-    ...(balInc ? [{ label:'발코니확장', color:'#7d6b9e', dep:balInc.dep, mid:0, bal:balInc.bal, total:balInc.total, vat:0, vatNote:'없음' }] : []),
-    { label:'오피스텔',  color:'#347a6a', dep:offiInc.dep,  mid:offiInc.mid,  bal:offiInc.bal,  total:offiInc.total,
-      vat: Math.round(offiInc.total*0.1), vatNote:'10%' },
-    { label:'근린상가',  color:'#965228', dep:storeInc.dep, mid:0,            bal:storeInc.bal, total:storeInc.total,
-      vat: Math.round(storeInc.total*0.1), vatNote:'10%' },
+      vatNote: aptOverSalesTotal > 0 ? `85㎡초과 ${formatNumber(Math.round(aptOverSalesTotal))}천` : '없음',
+      monthly: aptInc.monthly },
+    ...(publicInc.total > 0 ? [{ label:'공공주택', color:'#1a7a4a', dep:publicInc.depTotal, mid:publicInc.midTotal, bal:publicInc.balTotal, total:publicInc.total, vat:0, vatNote:'면세', monthly: publicInc.monthly }] : []),
+    ...(balInc ? [{ label:'발코니확장', color:'#7d6b9e', dep:balInc.dep, mid:0, bal:balInc.bal, total:balInc.total, vat:0, vatNote:'없음', monthly: balInc.monthly }] : []),
+    { label:'오피스텔',  color:'#347a6a', dep:offiInc.dep,       mid:offiInc.mid,     bal:offiInc.bal,     total:offiInc.total,
+      vat: Math.round(offiInc.total*0.1), vatNote:'10%', monthly: offiInc.monthly },
+    { label:'근린상가',  color:'#965228', dep:storeInc.dep,      mid:0,               bal:storeInc.bal,    total:storeInc.total,
+      vat: Math.round(storeInc.total*0.1), vatNote:'10%', monthly: storeInc.monthly },
+    ...(pubfacInc.total > 0 ? [{ label:'공공시설', color:'#9a6309', dep:pubfacInc.depTotal, mid:pubfacInc.midTotal, bal:pubfacInc.balTotal, total:pubfacInc.total,
+      vat: Math.round(pubfacInc.total*0.1), vatNote:'10%', monthly: pubfacInc.monthly }] : []),
   ].filter(r => r.total > 0);
+
   const sumDep   = catRows.reduce((s,r)=>s+r.dep,0);
   const sumMid   = catRows.reduce((s,r)=>s+r.mid,0);
   const sumBal   = catRows.reduce((s,r)=>s+r.bal,0);
@@ -810,63 +1155,17 @@ function Sales({ data, incomeData, archData, onChange, onSave, saving }) {
   const sumVat   = catRows.reduce((s,r)=>s+r.vat,0);
   const sumFinal = sumTotal + sumVat;
 
-  // ── 크로스체크 데이터 계산 ──
-  // 원천: incomeData (수입탭)
-  const incomeAptTotal   = aptRows.reduce((s,r) => {
-    const excl=parseFloat(parseNumber(r.excl_m2))||0, wall=parseFloat(parseNumber(r.wall_m2))||0,
-          core=parseFloat(parseNumber(r.core_m2))||0, units=parseFloat(parseNumber(r.units))||0,
-          pyP=parseFloat(parseNumber(r.py_price))||0;
-    return s + Math.round(pyP*(excl+wall+core)*0.3025*units);
-  }, 0);
-  const incomeAptVat     = Math.round(aptOverSalesTotal * 0.1);
-  const incomeBalTotal   = (balconyBurden==='분양자 부담')
-    ? aptRows.reduce((s,r)=>{
-        const units=parseFloat(parseNumber(r.units))||0;
-        const bAmt=parseFloat(parseNumber(balcony[r.type]||'0'))||0;
-        return s+units*bAmt;
-      },0) : 0;
-  const incomeOffiTotal  = offiRows.reduce((s,r) => {
-    const excl=parseFloat(parseNumber(r.excl_m2))||0, wall=parseFloat(parseNumber(r.wall_m2))||0,
-          core=parseFloat(parseNumber(r.core_m2))||0, mgmt=parseFloat(parseNumber(r.mgmt_m2))||0,
-          comm=parseFloat(parseNumber(r.comm_m2))||0, park=parseFloat(parseNumber(r.park_m2))||0,
-          tel=parseFloat(parseNumber(r.tel_m2))||0, elec=parseFloat(parseNumber(r.elec_m2))||0,
-          units=parseFloat(parseNumber(r.units))||0, pyP=parseFloat(parseNumber(r.py_price))||0;
-    return s+Math.round(pyP*(excl+wall+core+mgmt+comm+park+tel+elec)*0.3025*units);
-  }, 0);
-  const incomeOffiVat    = Math.round(incomeOffiTotal * 0.1);
-  const incomeStoreTotal = storeRows.reduce((s,r) => {
-    const excl=parseFloat(parseNumber(r.excl_m2))||0, wall=parseFloat(parseNumber(r.wall_m2))||0,
-          core=parseFloat(parseNumber(r.core_m2))||0, mgmt=parseFloat(parseNumber(r.mgmt_m2))||0,
-          comm=parseFloat(parseNumber(r.comm_m2))||0, park=parseFloat(parseNumber(r.park_m2))||0,
-          tel=parseFloat(parseNumber(r.tel_m2))||0, elec=parseFloat(parseNumber(r.elec_m2))||0,
-          units=parseFloat(parseNumber(r.units))||0, pyP=parseFloat(parseNumber(r.py_price))||0;
-    return s+Math.round(pyP*(excl+wall+core+mgmt+comm+park+tel+elec)*0.3025*units);
-  }, 0);
-  const incomeStoreVat   = Math.round(incomeStoreTotal * 0.1);
-
-  // 분양율탭 수입요약 합계
-  const salesSumApt   = aptInc.total;
-  const salesSumBal   = balInc?.total || 0;
-  const salesSumOffi  = offiInc.total;
-  const salesSumStore = storeInc.total;
-  const salesSumAptVat   = Math.round(aptOverSalesTotal * 0.1);
-  const salesSumOffiVat  = Math.round(offiInc.total * 0.1);
-  const salesSumStoreVat = Math.round(storeInc.total * 0.1);
-
-  // 월별 타임라인 합계
-  const timelineApt   = aptInc.monthly.reduce((s,v)=>s+v,0);
-  const timelineBal   = (balInc?.monthly||[]).reduce((s,v)=>s+v,0);
-  const timelineOffi  = offiInc.monthly.reduce((s,v)=>s+v,0);
-  const timelineStore = storeInc.monthly.reduce((s,v)=>s+v,0);
-  const timelineAptVat   = Math.round(aptOverSalesTotal * 0.1);
-  const timelineOffiVat  = Math.round(offiInc.total * 0.1);
-  const timelineStoreVat = Math.round(storeInc.total * 0.1);
-
+  // ── 크로스체크 ──
   const fmtCC = (v) => Math.round(v).toLocaleString('ko-KR');
-  const chk = (a, b, c) => {
-    const ok = Math.abs(a-b)<2 && Math.abs(b-c)<2 && Math.abs(a-c)<2;
-    return ok ? '✅' : '❌';
-  };
+  const chk = (a, b, c) => Math.abs(a-b)<2 && Math.abs(b-c)<2 && Math.abs(a-c)<2 ? '✅' : '❌';
+
+  const incomeAptTotal    = aptTotalAmt;
+  const incomePublicTotal = publicTotalAmt;
+  const incomeOffiTotal   = offiTotalAmt;
+  const incomeStoreTotal  = storeTotalAmt;
+  const incomePubfacTotal = pubfacTotalAmt;
+  const incomeBalTotal    = balconyBurden === '분양자 부담'
+    ? aptRows.reduce((s,r) => s + (parseFloat(parseNumber(r.units))||0)*(parseFloat(parseNumber(balcony[r.type]||'0'))||0), 0) : 0;
 
   return (
     <div>
@@ -894,18 +1193,20 @@ function Sales({ data, incomeData, archData, onChange, onSave, saving }) {
               </thead>
               <tbody>
                 {[
-                  { label:'공동주택 공급', a:incomeAptTotal,  b:salesSumApt,     c:timelineApt },
-                  { label:'공동주택 VAT',  a:incomeAptVat,    b:salesSumAptVat,  c:timelineAptVat },
-                  ...(incomeBalTotal>0 ? [{ label:'발코니확장',    a:incomeBalTotal,  b:salesSumBal,     c:timelineBal }] : []),
-                  { label:'오피스텔 공급', a:incomeOffiTotal,  b:salesSumOffi,    c:timelineOffi },
-                  { label:'오피스텔 VAT',  a:incomeOffiVat,    b:salesSumOffiVat, c:timelineOffiVat },
-                  { label:'근린상가 공급', a:incomeStoreTotal, b:salesSumStore,   c:timelineStore },
-                  { label:'근린상가 VAT',  a:incomeStoreVat,   b:salesSumStoreVat,c:timelineStoreVat },
+                  { label:'공동주택 공급',  a:incomeAptTotal,    b:aptInc.total,        c:aptInc.monthly.reduce((s,v)=>s+v,0) },
+                  { label:'공동주택 VAT',   a:Math.round(aptOverSalesTotal*0.1), b:Math.round(aptOverSalesTotal*0.1), c:Math.round(aptOverSalesTotal*0.1) },
+                  ...(incomePublicTotal>0 ? [{ label:'공공주택',    a:incomePublicTotal, b:publicInc.total,     c:publicInc.monthly.reduce((s,v)=>s+v,0) }] : []),
+                  ...(incomeBalTotal>0    ? [{ label:'발코니확장',   a:incomeBalTotal,    b:balInc?.total||0,    c:(balInc?.monthly||[]).reduce((s,v)=>s+v,0) }] : []),
+                  { label:'오피스텔 공급',  a:incomeOffiTotal,   b:offiInc.total,       c:offiInc.monthly.reduce((s,v)=>s+v,0) },
+                  { label:'오피스텔 VAT',   a:Math.round(incomeOffiTotal*0.1), b:Math.round(offiInc.total*0.1), c:Math.round(offiInc.total*0.1) },
+                  { label:'근린상가 공급',  a:incomeStoreTotal,  b:storeInc.total,      c:storeInc.monthly.reduce((s,v)=>s+v,0) },
+                  { label:'근린상가 VAT',   a:Math.round(incomeStoreTotal*0.1), b:Math.round(storeInc.total*0.1), c:Math.round(storeInc.total*0.1) },
+                  ...(incomePubfacTotal>0 ? [{ label:'공공시설 공급', a:incomePubfacTotal, b:pubfacInc.total,   c:pubfacInc.monthly.reduce((s,v)=>s+v,0) }] : []),
+                  ...(incomePubfacTotal>0 ? [{ label:'공공시설 VAT',  a:Math.round(incomePubfacTotal*0.1), b:Math.round(pubfacInc.total*0.1), c:Math.round(pubfacInc.total*0.1) }] : []),
                 ].map((row, i) => {
                   const ok = chk(row.a, row.b, row.c);
-                  const bg = ok==='✅' ? (i%2===0?'white':'#f8f9fa') : '#fdecea';
                   return (
-                    <tr key={row.label} style={{ backgroundColor:bg }}>
+                    <tr key={row.label} style={{ backgroundColor: ok==='✅'?(i%2===0?'white':'#f8f9fa'):'#fdecea' }}>
                       <td style={{ padding:'7px 12px', fontWeight:'bold', color:'#2c3e50' }}>{row.label}</td>
                       <td style={{ padding:'7px 12px', textAlign:'right', color:'#2980b9' }}>{fmtCC(row.a)}</td>
                       <td style={{ padding:'7px 12px', textAlign:'right', color:'#27ae60' }}>{fmtCC(row.b)}</td>
@@ -914,40 +1215,8 @@ function Sales({ data, incomeData, archData, onChange, onSave, saving }) {
                     </tr>
                   );
                 })}
-                {/* 전체 합계 */}
-                {(() => {
-                  const totA=incomeAptTotal+incomeBalTotal+incomeOffiTotal+incomeStoreTotal;
-                  const totB=salesSumApt+salesSumBal+salesSumOffi+salesSumStore;
-                  const totC=timelineApt+timelineBal+timelineOffi+timelineStore;
-                  const vatA=incomeAptVat+incomeOffiVat+incomeStoreVat;
-                  const vatB=salesSumAptVat+salesSumOffiVat+salesSumStoreVat;
-                  const vatC=timelineAptVat+timelineOffiVat+timelineStoreVat;
-                  return (
-                    <>
-                      <tr style={{ backgroundColor:'#e8f4fd', fontWeight:'bold' }}>
-                        <td style={{ padding:'8px 12px', color:'#1a5276' }}>전체 공급 합계</td>
-                        <td style={{ padding:'8px 12px', textAlign:'right', color:'#2980b9' }}>{fmtCC(totA)}</td>
-                        <td style={{ padding:'8px 12px', textAlign:'right', color:'#27ae60' }}>{fmtCC(totB)}</td>
-                        <td style={{ padding:'8px 12px', textAlign:'right', color:'#8e44ad' }}>{fmtCC(totC)}</td>
-                        <td style={{ padding:'8px 12px', textAlign:'center', fontSize:'16px' }}>{chk(totA,totB,totC)}</td>
-                      </tr>
-                      <tr style={{ backgroundColor:'#fef9e7', fontWeight:'bold' }}>
-                        <td style={{ padding:'8px 12px', color:'#7d6608' }}>전체 VAT 합계</td>
-                        <td style={{ padding:'8px 12px', textAlign:'right', color:'#2980b9' }}>{fmtCC(vatA)}</td>
-                        <td style={{ padding:'8px 12px', textAlign:'right', color:'#27ae60' }}>{fmtCC(vatB)}</td>
-                        <td style={{ padding:'8px 12px', textAlign:'right', color:'#8e44ad' }}>{fmtCC(vatC)}</td>
-                        <td style={{ padding:'8px 12px', textAlign:'center', fontSize:'16px' }}>{chk(vatA,vatB,vatC)}</td>
-                      </tr>
-                    </>
-                  );
-                })()}
               </tbody>
             </table>
-            <div style={{ marginTop:'16px', fontSize:'11px', color:'#888', display:'flex', gap:'20px' }}>
-              <span style={{ color:'#2980b9' }}>■ 수입탭 원천</span>
-              <span style={{ color:'#27ae60' }}>■ 분양율 수입요약</span>
-              <span style={{ color:'#8e44ad' }}>■ 월별 타임라인 합계</span>
-            </div>
           </div>
         </div>
       )}
@@ -956,7 +1225,7 @@ function Sales({ data, incomeData, archData, onChange, onSave, saving }) {
         <div style={{ display:'flex', alignItems:'baseline', gap:'12px' }}>
           <h3 style={{ margin:0 }}>분양율</h3>
           <span style={{ fontSize:'10px', color:'#aaa', fontStyle:'italic' }}>
-            ※ 소수점 처리: 총액 먼저 확정 → 월별 배분 → 마지막 월 오차 보정 (월별 합계 = 총액 항상 일치)
+            ※ 소수점 처리: 총액 먼저 확정 → 월별 배분 → 마지막 월 오차 보정
           </span>
         </div>
         <div style={{ display:'flex', gap:'8px', alignItems:'center' }}>
@@ -974,6 +1243,7 @@ function Sales({ data, incomeData, archData, onChange, onSave, saving }) {
         </div>
       </div>
 
+      {/* 사업 기간 요약 */}
       <div style={{ backgroundColor:'#2c3e50', color:'white', borderRadius:'8px', padding:'12px 20px', marginBottom:'20px', display:'flex', gap:'20px', flexWrap:'wrap', fontSize:'13px' }}>
         <div><span style={{ opacity:0.7 }}>사업준비 </span><strong>{prepPeriod}개월</strong></div>
         <div><span style={{ opacity:0.7 }}>착공 </span><strong style={{ color:'#e67e22' }}>{ymList[constructMonth-1]||'-'}</strong><span style={{ opacity:0.7 }}> ({constructMonth}개월차)</span></div>
@@ -1060,7 +1330,7 @@ function Sales({ data, incomeData, archData, onChange, onSave, saving }) {
               {catRows.map((r,i) => (
                 <tr key={r.label} style={{ backgroundColor:i%2===0?'white':'#f8f9fa' }}>
                   <td style={{ padding:'4px 8px', fontWeight:'bold', color:r.color, fontSize:'11px', whiteSpace:'nowrap', position:'sticky', left:0, backgroundColor:i%2===0?'white':'#f8f9fa', zIndex:1 }}>{r.label}</td>
-                  {(r.label==='공동주택'?aptInc:r.label==='발코니확장'?balInc:r.label==='오피스텔'?offiInc:storeInc).monthly.map((v,j) => (
+                  {r.monthly.map((v,j) => (
                     <td key={j} style={{ padding:'3px 4px', textAlign:'right', fontSize:'10px',
                       backgroundColor:v>0?(i%2===0?'#f0f7ff':'#e8f4fd'):(i%2===0?'white':'#f8f9fa'),
                       color:v>0?r.color:'#ddd', fontWeight:v>0?'bold':'normal' }}>
@@ -1117,7 +1387,7 @@ function Sales({ data, incomeData, archData, onChange, onSave, saving }) {
         </div>
       </div>
 
-      {/* 공동주택 */}
+      {/* ── 공동주택 ── */}
       <div onClick={() => toggleSection('apt')} style={{ display:'flex', justifyContent:'space-between', alignItems:'center',
         cursor:'pointer', padding:'6px 10px', backgroundColor:'#eaf1fb', borderRadius:'6px', marginBottom:'6px', borderLeft:'4px solid #3d6a99' }}>
         <span style={{ fontWeight:'bold', color:'#3d6a99', fontSize:'13px' }}>공동주택</span>
@@ -1137,7 +1407,32 @@ function Sales({ data, incomeData, archData, onChange, onSave, saving }) {
           monthly={aptInc.monthly} />
       )}
 
-      {/* 발코니확장 - 수입탭에서 분양자부담일 때만 표시 */}
+      {/* ── 공공주택 (신규) ── */}
+      {publicTotalAmt > 0 && (
+        <>
+          <div onClick={() => toggleSection('public')} style={{ display:'flex', justifyContent:'space-between', alignItems:'center',
+            cursor:'pointer', padding:'6px 10px', backgroundColor:'#e8f8f0', borderRadius:'6px', marginBottom:'6px', borderLeft:'4px solid #1a7a4a' }}>
+            <span style={{ fontWeight:'bold', color:'#1a7a4a', fontSize:'13px' }}>공공주택</span>
+            <div style={{ display:'flex', gap:'12px', alignItems:'center', fontSize:'12px' }}>
+              <span style={{ color:'#555' }}>합계: <strong style={{ color:'#1a7a4a' }}>{formatNumber(Math.round(publicInc.total))} 천원</strong></span>
+              <span style={{ fontSize:'11px', color:'#aaa' }}>면세</span>
+              <span style={{ color:'#888' }}>{openSections.public ? '▲ 접기' : '▼ 펼치기'}</span>
+            </div>
+          </div>
+          {openSections.public && (
+            <PublicSalesCondition title="공공주택" color="#1a7a4a" config={publicCfg} setConfig={setPublicCfg} />
+          )}
+          {openSections.public && (
+            <PublicSalesSection title="공공주택" color="#1a7a4a"
+              totalAmount={Math.round(publicTotalAmt)} cfg={publicCfg}
+              totalMonths={totalMonths} ymList={ymList}
+              constructMonth={constructMonth} junMonth={junMonth}
+              constructPeriod={constructPeriod} vatRate={0} />
+          )}
+        </>
+      )}
+
+      {/* ── 발코니확장 ── */}
       {balUnits > 0 && balconyBurden === '분양자 부담' && (
         <>
           <div onClick={() => toggleSection('balcony')} style={{ display:'flex', justifyContent:'space-between', alignItems:'center',
@@ -1151,7 +1446,7 @@ function Sales({ data, incomeData, archData, onChange, onSave, saving }) {
           {openSections.balcony && <SalesCondition title="발코니확장" color="#7d6b9e" config={balconyCfg} setConfig={setBalconyCfg} />}
           {openSections.balcony && (
             <SalesSection title="발코니확장" color="#7d6b9e" patterns={APT_PATTERNS}
-              config={balconyCfg} setConfig={setBalconyCfg} isStore={false}
+              config={balconyCfg} setConfig={setBalconyCfg} isStore={false} isBalcony={true}
               totalMonths={totalMonths} ymList={ymList}
               constructMonth={constructMonth} junMonth={junMonth}
               midMonths={balconyMid} balMonths={balconyBal}
@@ -1161,7 +1456,7 @@ function Sales({ data, incomeData, archData, onChange, onSave, saving }) {
         </>
       )}
 
-      {/* 오피스텔 */}
+      {/* ── 오피스텔 ── */}
       <div onClick={() => toggleSection('offi')} style={{ display:'flex', justifyContent:'space-between', alignItems:'center',
         cursor:'pointer', padding:'6px 10px', backgroundColor:'#eaf5f2', borderRadius:'6px', marginBottom:'6px', borderLeft:'4px solid #347a6a' }}>
         <span style={{ fontWeight:'bold', color:'#347a6a', fontSize:'13px' }}>오피스텔</span>
@@ -1181,7 +1476,7 @@ function Sales({ data, incomeData, archData, onChange, onSave, saving }) {
           monthly={offiInc.monthly} />
       )}
 
-      {/* 근린상가 */}
+      {/* ── 근린상가 ── */}
       <div onClick={() => toggleSection('store')} style={{ display:'flex', justifyContent:'space-between', alignItems:'center',
         cursor:'pointer', padding:'6px 10px', backgroundColor:'#fdf0e8', borderRadius:'6px', marginBottom:'6px', borderLeft:'4px solid #965228' }}>
         <span style={{ fontWeight:'bold', color:'#965228', fontSize:'13px' }}>근린상가</span>
@@ -1199,6 +1494,30 @@ function Sales({ data, incomeData, archData, onChange, onSave, saving }) {
           midMonths={storeMid} balMonths={storeBal}
           totalUnits={store.units} unitPrice={store.unitPrice} vatRate={10}
           monthly={storeInc.monthly} />
+      )}
+
+      {/* ── 공공시설 (신규) ── */}
+      {pubfacTotalAmt > 0 && (
+        <>
+          <div onClick={() => toggleSection('pubfac')} style={{ display:'flex', justifyContent:'space-between', alignItems:'center',
+            cursor:'pointer', padding:'6px 10px', backgroundColor:'#fef9e7', borderRadius:'6px', marginBottom:'6px', borderLeft:'4px solid #9a6309' }}>
+            <span style={{ fontWeight:'bold', color:'#9a6309', fontSize:'13px' }}>공공시설</span>
+            <div style={{ display:'flex', gap:'12px', alignItems:'center', fontSize:'12px' }}>
+              <span style={{ color:'#555' }}>합계: <strong style={{ color:'#9a6309' }}>{formatNumber(Math.round(pubfacInc.total))} 천원</strong> (부가세 별도)</span>
+              <span style={{ color:'#888' }}>{openSections.pubfac ? '▲ 접기' : '▼ 펼치기'}</span>
+            </div>
+          </div>
+          {openSections.pubfac && (
+            <PublicSalesCondition title="공공시설" color="#9a6309" config={pubfacCfg} setConfig={setPubfacCfg} />
+          )}
+          {openSections.pubfac && (
+            <PublicSalesSection title="공공시설" color="#9a6309"
+              totalAmount={Math.round(pubfacTotalAmt)} cfg={pubfacCfg}
+              totalMonths={totalMonths} ymList={ymList}
+              constructMonth={constructMonth} junMonth={junMonth}
+              constructPeriod={constructPeriod} vatRate={10} />
+          )}
+        </>
       )}
     </div>
   );
