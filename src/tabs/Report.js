@@ -343,17 +343,18 @@ function SaleAllocation({ salesData, projectName, onSalesChange }) {
   const [scenario, setScenario] = useState(() => salesData?.allocScenario || 'over');
   const [alloc, setAlloc] = useState(() => loadAlloc());
 
-  // 다른 프로젝트 로드 시 상태 재동기화 (ymList 변화 감지)
-  const prevYmKey = React.useRef(null);
+  // 다른 프로젝트 로드 시 상태 재동기화
+  // ymList 시작+길이로 프로젝트 변경 감지 (alloc 저장 중 불필요한 초기화 방지)
+  const ymKey = `${(salesData?.ymList||[])[0]||''}_${(salesData?.ymList||[]).length}`;
+  const prevYmKey = React.useRef(ymKey);
   React.useEffect(() => {
-    const key = (salesData?.ymList || []).join(',');
-    if (prevYmKey.current !== key) {
-      prevYmKey.current = key;
+    if (prevYmKey.current !== ymKey) {
+      prevYmKey.current = ymKey;
       setAlloc(loadAlloc(salesData));
       setBaseRate(salesData?.allocBaseRate || 60);
       setScenario(salesData?.allocScenario || 'over');
     }
-  }); // eslint-disable-line
+  }, [ymKey]); // eslint-disable-line
 
   // salesData에 저장하는 헬퍼 (Firestore까지 전파)
   const saveToSalesData = (nextAlloc, nextBaseRate, nextScenario) => {
@@ -703,9 +704,12 @@ function SaleAllocation({ salesData, projectName, onSalesChange }) {
                 const rowSum = sum(row.key);
                 const isGrandRow = ['totalSave','totalOper','total'].includes(row.key);
                 if (!isGrandRow && rowSum === 0) {
-                  // 상환용(Save) 행이 0이면 해당 쌍(운영비도) 함께 숨김
-                  // label 없는 운영비 쌍 행: 대응하는 Save 키의 합계로 판단
-                  return null;
+                  // label 없는 운영비 쌍 행만 숨김 (label 있는 상환용 행은 0이어도 표시)
+                  if (!row.label) return null;
+                  // label 있는 행 중 일반(주거용/상가) 행은 0이면 숨김
+                  // 기부체납(pub으로 시작) 행은 항상 표시
+                  const isPub = row.key && row.key.startsWith('pub');
+                  if (!isPub) return null;
                 }
 
                 return (
