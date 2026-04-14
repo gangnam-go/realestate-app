@@ -232,7 +232,9 @@ const calcRows = (salesData, alloc, baseRate, scenario, ymList) => {
     (salesData?.pubfacMidMonthlyVat?.[i] || (salesData?.pubfacMidMonthly?.[i]||0) * 1.1)
   );
   const pubBal = ymList.map((_,i) =>
+    // publicBalMonthly = 공공주택 잔금(bal) 배열 (Sales.js: publicBalMonthly: publicInc.bal)
     (salesData?.publicBalMonthly?.[i]||0) +
+    // 공공발코니 잔금
     (salesData?.publicBalBalMonthly?.[i]||0) +
     (salesData?.pubfacBalMonthlyVat?.[i] || (salesData?.pubfacBalMonthly?.[i]||0) * 1.1)
   );
@@ -1224,7 +1226,8 @@ function SalesCashFlow({ salesData, projectName }) {
     (salesData?.balconyMonthly?.[i] ?? ((salesData?.balDepMonthly?.[i]||0)+(salesData?.balBalMonthly?.[i]||0))) +
     (salesData?.offiMonthly2?.[i] ?? ((salesData?.offiDepMonthly?.[i]||0)+(salesData?.offiMidMonthly?.[i]||0)+(salesData?.offiBalMonthly?.[i]||0))) +
     (salesData?.publicMonthly?.[i] || 0) +
-    (salesData?.publicBalMonthly?.[i]||0) +  // ← 공공발코니 키 주의 (배열)
+    // 공공발코니: publicBalMonthly는 공공주택잔금 배열과 키 충돌 → dep+mid+bal 직접 합산
+    ((salesData?.publicBalDepMonthly?.[i]||0)+(salesData?.publicBalMidMonthly?.[i]||0)+(salesData?.publicBalBalMonthly?.[i]||0)) +
     (salesData?.pubfacMonthly?.[i] || 0) +
     (salesData?.storeMonthly?.[i] ?? ((salesData?.storeDepMonthly?.[i]||0)+(salesData?.storeMidMonthly?.[i]||0)+(salesData?.storeBalMonthly?.[i]||0)))
   );
