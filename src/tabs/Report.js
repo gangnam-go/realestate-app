@@ -326,49 +326,65 @@ function SaleAllocation({ salesData, projectName }) {
   ) > 0;
   const noData   = ymList.length === 0;
 
-  // localStorage 키 (프로젝트명 기반으로 persist)
-  const lsKey = 'saleAlloc_' + (projectName || 'default');
-
-  const loadAlloc = () => {
-    try {
-      const saved = localStorage.getItem(lsKey);
-      if (saved) {
-        const p = JSON.parse(saved);
-        return {
-          over:   { res: { ...DEFAULT_ALLOC.over.res,   ...(p.over?.res   || {}) }, store: { ...DEFAULT_ALLOC.over.store,   ...(p.over?.store   || {}) } },
-          under:  { res: { ...DEFAULT_ALLOC.under.res,  ...(p.under?.res  || {}) }, store: { ...DEFAULT_ALLOC.under.store,  ...(p.under?.store  || {}) } },
-          public: { ...DEFAULT_ALLOC.public, ...(p.public || {}) },
-        };
-      }
-    } catch(e) {}
+  // salesData에서 저장된 alloc 값 로드 (없으면 DEFAULT_ALLOC)
+  const loadAlloc = (sd) => {
+    const s = sd || salesData || {};
+    if (s.allocOver || s.allocUnder || s.allocPublic) {
+      return {
+        over:   { res: { ...DEFAULT_ALLOC.over.res,   ...(s.allocOver?.res   || {}) }, store: { ...DEFAULT_ALLOC.over.store,   ...(s.allocOver?.store   || {}) } },
+        under:  { res: { ...DEFAULT_ALLOC.under.res,  ...(s.allocUnder?.res  || {}) }, store: { ...DEFAULT_ALLOC.under.store,  ...(s.allocUnder?.store  || {}) } },
+        public: { ...DEFAULT_ALLOC.public, ...(s.allocPublic || {}) },
+      };
+    }
     return JSON.parse(JSON.stringify(DEFAULT_ALLOC));
   };
 
-  const [baseRate, setBaseRate] = useState(() => {
-    try { return parseInt(localStorage.getItem(lsKey + '_baseRate')) || 60; } catch(e) { return 60; }
-  });
-  const [scenario, setScenario] = useState(() => {
-    try { return localStorage.getItem(lsKey + '_scenario') || 'over'; } catch(e) { return 'over'; }
-  });
+  const [baseRate, setBaseRate] = useState(() => salesData?.allocBaseRate || 60);
+  const [scenario, setScenario] = useState(() => salesData?.allocScenario || 'over');
   const [alloc, setAlloc] = useState(() => loadAlloc());
+
+  // 다른 프로젝트 로드 시 상태 재동기화 (ymList 변화 감지)
+  const prevYmKey = React.useRef(null);
+  React.useEffect(() => {
+    const key = (salesData?.ymList || []).join(',');
+    if (prevYmKey.current !== key) {
+      prevYmKey.current = key;
+      setAlloc(loadAlloc(salesData));
+      setBaseRate(salesData?.allocBaseRate || 60);
+      setScenario(salesData?.allocScenario || 'over');
+    }
+  }); // eslint-disable-line
+
+  // salesData에 저장하는 헬퍼 (Firestore까지 전파)
+  const saveToSalesData = (nextAlloc, nextBaseRate, nextScenario) => {
+    if (!onSalesChange) return;
+    onSalesChange({
+      ...salesData,
+      allocOver:     nextAlloc.over,
+      allocUnder:    nextAlloc.under,
+      allocPublic:   nextAlloc.public,
+      allocBaseRate: nextBaseRate,
+      allocScenario: nextScenario,
+    });
+  };
 
   const updateAlloc = (when, cat, item, val) => {
     setAlloc(prev => {
       const next = JSON.parse(JSON.stringify(prev));
       if (when === 'public') next.public[item] = val;
       else next[when][cat][item] = val;
-      try { localStorage.setItem(lsKey, JSON.stringify(next)); } catch(e) {}
+      saveToSalesData(next, baseRate, scenario);
       return next;
     });
   };
 
   const handleBaseRateChange = (val) => {
     setBaseRate(val);
-    try { localStorage.setItem(lsKey + '_baseRate', String(val)); } catch(e) {}
+    saveToSalesData(alloc, val, scenario);
   };
   const handleScenarioChange = (val) => {
     setScenario(val);
-    try { localStorage.setItem(lsKey + '_scenario', val); } catch(e) {}
+    saveToSalesData(alloc, baseRate, val);
   };
 
   const rows = useMemo(() =>
@@ -686,13 +702,10 @@ function SaleAllocation({ salesData, projectName }) {
                 }
                 const rowSum = sum(row.key);
                 const isGrandRow = ['totalSave','totalOper','total'].includes(row.key);
-                // label 있는 행(상환용)은 rowSum=0이어도 표시, label 없는 쌍(운영비)만 숨김
-                const isPairOper = !row.label && row.sub === '운영비';
-                if (!isGrandRow && rowSum === 0 && isPairOper) return null;
-                // 기타 금액 0이고 label 있는 행: 기부체납 행은 항상 표시, 일반 행은 숨김
-                if (!isGrandRow && rowSum === 0 && !isPairOper) {
-                  const isPub = row.key && row.key.startsWith('pub');
-                  if (!isPub) return null;
+                if (!isGrandRow && rowSum === 0) {
+                  // 상환용(Save) 행이 0이면 해당 쌍(운영비도) 함께 숨김
+                  // label 없는 운영비 쌍 행: 대응하는 Save 키의 합계로 판단
+                  return null;
                 }
 
                 return (
@@ -2269,7 +2282,7 @@ function IncomeReport({ incomeData, projectName }) {
 // ─────────────────────────────────────────────
 // 보고서탭 메인
 // ─────────────────────────────────────────────
-function Report({ salesData, monthlyPayments, financeData, projectName, cashFlowResult, incomeData }) {
+function Report({ salesData, monthlyPayments, financeData, projectName, cashFlowResult, incomeData, onSalesChange }) {
   const [active, setActive] = React.useState(null);
 
   const btnStyle = (color, disabled = false) => ({
@@ -2308,7 +2321,7 @@ function Report({ salesData, monthlyPayments, financeData, projectName, cashFlow
       </div>
 
       {active === 'income'   && <IncomeReport incomeData={incomeData} projectName={projectName} />}
-      {active === 'alloc'    && <SaleAllocation salesData={salesData} projectName={projectName} />}
+      {active === 'alloc'    && <SaleAllocation salesData={salesData} projectName={projectName} onSalesChange={onSalesChange} />}
       {active === 'cashflow' && <CashFlow salesData={salesData} monthlyPayments={monthlyPayments} financeData={financeData} projectName={projectName} cashFlowResult={cashFlowResult} />}
       {active === 'salescf'  && <SalesCashFlow salesData={salesData} projectName={projectName} />}
       {active === 'costcf'   && <CostCashFlow monthlyPayments={monthlyPayments} salesData={salesData} financeData={financeData} projectName={projectName} cashFlowResult={cashFlowResult} />}
