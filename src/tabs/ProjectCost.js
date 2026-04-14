@@ -8893,6 +8893,7 @@ function calcMonthlyPayments({
   const taxItemsF      = assignFunding(tax.items     ||[]);
   const overheadItemsF = assignFunding(overhead.items||[]);
 
+  console.log('return 직전 vatSettlements 합계:', Object.values(vatSettlements).reduce((s,v)=>s+v,0));
   return {
     months,
     land:        land.totals,     landVat:     land.vatTotals,     landItems:     landItemsF,
@@ -8902,7 +8903,6 @@ function calcMonthlyPayments({
     sales:       sales.totals,    salesVat:    sales.vatTotals,    salesItems:    salesItemsF,
     tax:         tax.totals,      taxVat:      tax.vatTotals,      taxItems:      taxItemsF,
     overhead:    overhead.totals, overheadVat: overhead.vatTotals, overheadItems: overheadItemsF,
-    console.log('return 직전 vatSettlements 합계:', Object.values(vatSettlements).reduce((s,v)=>s+v,0));
     vatSettlements,
   };
 }
