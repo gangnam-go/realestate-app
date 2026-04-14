@@ -2135,6 +2135,7 @@ function CashFlowCalc({ salesData, monthlyPayments, financeData, onFinanceChange
       {/* 검증 */}
       {(() => {
         const diff = Math.abs(lhsCheck_ - rhsCheckFin_);
+        console.log('vatNetPay_:', vatNetPay_);
         const ok   = diff < 100;
         return (
           <div style={{ marginTop:'8px', padding:'8px 12px', borderRadius:'6px', fontSize:'11px',
@@ -2144,7 +2145,6 @@ function CashFlowCalc({ salesData, monthlyPayments, financeData, onFinanceChange
             </span>
             <span style={{ color:'#555', marginLeft:'12px' }}>
               (분양수입 {formatNumber(Math.round(salesTotal_))} - 사업비지출 {formatNumber(Math.round(costTotal_))} - 부가세납부(-)/환급(+) {formatNumber(Math.round(vatNetPay_))}) = {formatNumber(Math.round(lhsCheck_))}
-              console.log('vatNetPay_:', vatNetPay_);
               {' vs '}
               (운영비계좌 {formatNumber(Math.round(lastCarry_))} + 상환용계좌 {formatNumber(Math.round(lastSave_))}) = {formatNumber(Math.round(rhsCheckFin_))}
               {diff > 0 && ` | 차이: ${formatNumber(Math.round(diff))}`}
