@@ -1984,19 +1984,18 @@ function CashFlowCalc({ salesData, monthlyPayments, financeData, onFinanceChange
               {/* 부가세 납부/환급 */}
               {vatByMonthArr.some(v=>v!==0) && (() => {
                 const total = vatByMonthArr.reduce((s,v)=>s+v,0);
-                const vals = vatByMonthArr.map(v => v > 0 ? v : 0);
                 return (
                   <tr>
                     <td style={{ ...tdS(W,'#7d5a00'), textAlign:'left', paddingLeft:'10px', ...stickyL, backgroundColor:W }}>
                       부가세납부(-)/환급(+)
                     </td>
                     {vatByMonthArr.map((v,i) => (
-                      <td key={i} style={{ ...tdS(isSpec(i)?G1:W, v>0?'#27ae60':'#c0392b'), borderRight:colBR(i), borderLeft:isSpec(i)?'2px solid #999':undefined }}>
-                        {v>0?fmt(v):v<0?`(${fmt(-v)})`:''}
+                      <td key={i} style={{ ...tdS(isSpec(i)?G1:W, v>0?'v<0?'#c0392b':'#27ae60'), borderRight:colBR(i), borderLeft:isSpec(i)?'2px solid #999':undefined }}>
+                        {v<0?`(${fmt(-v)})`:v>0?fmt(v):''}
                       </td>
                     ))}
                     <td style={{ ...tdS(W,'#7d5a00',true), borderLeft:'2px solid #999' }}>
-                      {total>0?fmt(total):total<0?`(${fmt(-total)})`:''}
+                      {total<0?`(${fmt(-total)})`:total>0?fmt(total):''}
                     </td>
                   </tr>
                 );
