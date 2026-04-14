@@ -12807,6 +12807,7 @@ function ProjectCost({ data, onChange, onSave, saving, archData, incomeData, sal
   // ── 제세금 합계 + 재원 ──
   // ── 월별 지급 계산 (1회만, 지급패턴탭/합계탭 공유) ──
   const monthlyPayments = calcMonthlyPayments({
+  console.log('monthlyPayments vatSettlements 합계:', Object.values(monthlyPayments.vatSettlements||{}).reduce((s,v)=>s+v,0));
     landData, directData, indirectData, consultData,
     salesCostData, overheadData, taxData,
     directResult, indirectResult, consultResult,
