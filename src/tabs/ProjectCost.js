@@ -12807,7 +12807,6 @@ function ProjectCost({ data, onChange, onSave, saving, archData, incomeData, sal
   // ── 제세금 합계 + 재원 ──
   // ── 월별 지급 계산 (1회만, 지급패턴탭/합계탭 공유) ──
   const monthlyPayments = calcMonthlyPayments({
-  console.log('monthlyPayments vatSettlements 합계:', Object.values(monthlyPayments.vatSettlements||{}).reduce((s,v)=>s+v,0));
     landData, directData, indirectData, consultData,
     salesCostData, overheadData, taxData,
     directResult, indirectResult, consultResult,
@@ -12815,7 +12814,7 @@ function ProjectCost({ data, onChange, onSave, saving, archData, incomeData, sal
     archData, settingsData, salesData, vatData,
     paymentSchedule: data.paymentSchedule || {},
   });
-
+  console.log('monthlyPayments vatSettlements 합계:', Object.values(monthlyPayments.vatSettlements||{}).reduce((s,v)=>s+v,0));
   // ── result를 상위로 전달 (읽기 전용 — Firestore 저장 안 함) ──
   // monthlyPayments를 ref에 저장해서 항상 최신값 유지
   const mpRef = React.useRef(null);
