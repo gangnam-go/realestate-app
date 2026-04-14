@@ -1412,7 +1412,7 @@ function CashFlowCalc({ salesData, monthlyPayments, financeData, onFinanceChange
     const vatIn     = vatSettle < 0 ? -vatSettle : 0; // 환급 → 당월 유입
     // 총 지출 = 사업비 + 중도금무이자 + 부가세납부 - 부가세환급
     // (PF이자/원금은 상환용계좌에서 차감)
-    let remain = out + midInt_est - vatByMonthArr[i];
+    let remain = out + midInt_est + vatByMonthArr[i];
 
     // 이월 잔액 우선 사용
     const carryUsed = Math.min(carryOver, remain);
@@ -1583,7 +1583,7 @@ function CashFlowCalc({ salesData, monthlyPayments, financeData, onFinanceChange
   const finTotalByMonth   = months.map((_,i)=>finFeeByMonth[i]+finMidByMonth[i]+finIntByMonth[i]);
   // 현금유출에는 수수료+중도금무이자 포함 (PF이자/원금은 상환용계좌에서 차감)
   const finFeeOnlyByMonth = months.map((_,i)=>finFeeByMonth[i]);
-  const totalOutWithFin   = totalOut.map((v,i)=>v+finFeeOnlyByMonth[i]+finMidByMonth[i]+ (vatByMonthArr[i] < 0 ? -vatByMonthArr[i] : 0));
+  const totalOutWithFin   = totalOut.map((v,i)=>v+finFeeOnlyByMonth[i]+finMidByMonth[i]+ (vatByMonthArr[i] > 0 ? -vatByMonthArr[i] : 0));
   // 에쿼티 상환은 surplusByMonth에서 별도 차감 (totalOutWithFin과 분리)
 
   // ── 새 검증식: (분양수입 - 사업비지출 - 부가세납부) = (운영비계좌 + 상환용계좌) ──
@@ -1990,7 +1990,7 @@ function CashFlowCalc({ salesData, monthlyPayments, financeData, onFinanceChange
                       부가세납부(-)/환급(+)
                     </td>
                     {vatByMonthArr.map((v,i) => (
-                      <td key={i} style={{ ...tdS(isSpec(i)?G1:W, v>0?'#c0392b':'#27ae60'), borderRight:colBR(i), borderLeft:isSpec(i)?'2px solid #999':undefined }}>
+                      <td key={i} style={{ ...tdS(isSpec(i)?G1:W, v<0?'#c0392b':'#27ae60'), borderRight:colBR(i), borderLeft:isSpec(i)?'2px solid #999':undefined }}>
                         {v<0?('('+fmt(-v)+')'):v>0?fmt(v):''}
                       </td>
                     ))}
@@ -2023,7 +2023,7 @@ function CashFlowCalc({ salesData, monthlyPayments, financeData, onFinanceChange
               {divider()}
               {/* 과부족 */}
               {(() => {
-                const vals = months.map((_,i)=>carryByMonth[i]+eqByMonthArr[i]+operByMonth[i]-totalOutWithFin[i]-(eqRepayByMonth[i]||0)+(vatByMonthArr[i]<0?-vatByMonthArr[i]:0));
+                const vals = months.map((_,i)=>carryByMonth[i]+eqByMonthArr[i]+operByMonth[i]-totalOutWithFin[i]-(eqRepayByMonth[i]||0));
                 return (
                   <tr>
                     <td style={{ ...tdS(G2,BK,true), textAlign:'left', paddingLeft:'10px', ...stickyL, backgroundColor:G2 }}>과부족 (PF 실행 전)</td>
