@@ -315,7 +315,7 @@ function AllocRow({ label, save, onChangeSave, color='#1a3a5c' }) {
 // ─────────────────────────────────────────────
 // 메인 SaleAllocation
 // ─────────────────────────────────────────────
-function SaleAllocation({ salesData, projectName }) {
+function SaleAllocation({ salesData, projectName, onSalesChange }) {
   const ymList   = salesData?.ymList || [];
   const hasStore = (salesData?.salesSumStore || 0) > 0;
   // 기부체납 존재 여부
