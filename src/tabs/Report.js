@@ -957,7 +957,7 @@ function CashFlow({ salesData, monthlyPayments, financeData, projectName, cashFl
         ${cell(fmtV(costTotals.reduce((s,v)=>s+v,0)+finTotals.reduce((s,v)=>s+v,0)),'#e8d8d8','#555',true,'border-left:2px solid #aaa;')}
       </tr>` : ''}
       ${div3()}
-      <tr><td style="background:#fffde7;color:#7d5a00;font-weight:bold;padding:3px 6px;font-size:8px;border-bottom:1px solid #eee;">부가세 납부(+)/환급(-)</td>
+      <tr><td style="background:#fffde7;color:#7d5a00;font-weight:bold;padding:3px 6px;font-size:8px;border-bottom:1px solid #eee;">부가세 납부(-)/환급(+)</td>
         ${vatSettle.map((v,idx)=>cell(v>0?fmtV(v):v<0?`(${fmtV(-v)})`:'',isSpecial(idx)?'#f5f5e8':'#fffde7',v>0?'#c0392b':v<0?'#1a5276':'#888',true,bR(months[idx],idx))).join('')}
         ${cell(fmtV(vatSettle.reduce((s,v)=>s+v,0)),'#f0e8c0','#7d5a00',true,'border-left:2px solid #aaa;')}
       </tr>
@@ -971,7 +971,7 @@ function CashFlow({ salesData, monthlyPayments, financeData, projectName, cashFl
         ${cell(fmtV(Math.abs(cumulative[cumulative.length-1]||0)),'#ccc','#1a1a2e',true,'border-left:2px solid #aaa;')}
       </tr>
     </tbody></table>
-    <div style="margin-top:5px;font-size:7px;color:#888;">※ 부가세 납부(+): 실제 지출 / 환급(-): 실제 수입 | ◆ 착공월 | ★ 준공월</div>
+    <div style="margin-top:5px;font-size:7px;color:#888;">※ 부가세 납부(-): 실제 지출 / 환급(+): 실제 수입 | ◆ 착공월 | ★ 준공월</div>
     </body></html>`);
     win.document.close();
     setTimeout(() => win.print(), 400);
@@ -1119,7 +1119,7 @@ function CashFlow({ salesData, monthlyPayments, financeData, projectName, cashFl
               </tr>
               <tr><td colSpan={months.length+2} style={{ height:'3px', background:'#aaa', padding:0 }} /></tr>
               <tr>
-                <td style={{ ...tdSty('#fffde7','#7d5a00',true), textAlign:'left', position:'sticky', left:0 }}>부가세 납부(+)/환급(-)</td>
+                <td style={{ ...tdSty('#fffde7','#7d5a00',true), textAlign:'left', position:'sticky', left:0 }}>부가세 납부(-)/환급(+)</td>
                 {vatSettle.map((v,idx) => (
                   <td key={months[idx]} style={{ ...tdSty(cellBg(idx,'#fffde7'), v>0?'#c0392b':v<0?'#1a5276':'#888', true), borderRight:colBR(months[idx]), borderLeft:isSpecial(idx)?'2px solid #bbb':undefined }}>
                     {v>0?fmtC(v):v<0?`(${fmtC(-v)})`:''}
@@ -1155,7 +1155,7 @@ function CashFlow({ salesData, monthlyPayments, financeData, projectName, cashFl
         </div>
       )}
       <div style={{ marginTop:'8px', fontSize:'10px', color:'#888' }}>
-        ※ 부가세 납부(+): 실제 지출 / 환급(-): 실제 수입
+        ※ 부가세 납부(-): 실제 지출 / 환급(+): 실제 수입
         {conMonth>0&&months[conMonth-1]?` | ◆ 착공: ${months[conMonth-1]}`:''}
         {junMonth>0&&months[junMonth-1]?` | ★ 준공: ${months[junMonth-1]}`:''}
       </div>
