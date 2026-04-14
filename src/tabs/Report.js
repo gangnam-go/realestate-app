@@ -1122,10 +1122,10 @@ function CashFlow({ salesData, monthlyPayments, financeData, projectName, cashFl
                 <td style={{ ...tdSty('#fffde7','#7d5a00',true), textAlign:'left', position:'sticky', left:0 }}>부가세 납부(-)/환급(+)</td>
                 {vatSettle.map((v,idx) => (
                   <td key={months[idx]} style={{ ...tdSty(cellBg(idx,'#fffde7'), v>0?'#c0392b':v<0?'#1a5276':'#888', true), borderRight:colBR(months[idx]), borderLeft:isSpecial(idx)?'2px solid #bbb':undefined }}>
-                    {v<0?fmtC(-v):v>0?`(${fmtC(v)})`:''}
+                    {v>0?fmtC(v):v<0?`(${fmtC(-v)})`:''}
                   </td>
                 ))}
-                <td style={{ ...tdSty('#f0e8c0','#7d5a00',true), borderLeft:'2px solid #bbb' }}>{fmtC(vatSettle.reduce((s,v)=>s+v,0))}</td>
+                <td style={{ ...tdSty('#f0e8c0','#7d5a00',true), borderLeft:'2px solid #bbb' }}>{(() => { const t = vatSettle.reduce((s,v)=>s+v,0); return t>0?fmtC(t):t<0?`(${fmtC(-t)})`:''; })()}</td>
               </tr>
               <tr><td colSpan={months.length+2} style={{ height:'3px', background:'#333', padding:0 }} /></tr>
               <tr>
