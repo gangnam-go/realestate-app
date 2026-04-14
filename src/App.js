@@ -288,12 +288,8 @@ function App() {
             salesData={projectData['분양율'] || {}}
             incomeData={projectData['수입'] || {}}
             financeData={projectData['금융'] || {}}
-            onFinanceChange={async (data) => {
-              updateSheet('금융', data);
-              setSaving(true);
-              await setDoc(doc(db, 'projects', project.id, 'sheets', '금융'), data || {});
-              setSaving(false);
-            }}
+            vatData={projectData['부가세안분'] || {}}
+            onFinanceChange={...}
             onCashFlowResult={setCashFlowResult}
             cashFlowResult={cashFlowResult}
             {...costResults}
