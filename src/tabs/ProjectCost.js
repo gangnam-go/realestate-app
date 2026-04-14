@@ -11316,9 +11316,9 @@ function PaymentScheduleSection({ costSummary, landData, directData, indirectDat
         const lastMonth = months[months.length-1];
         const vatSettlements = {}; // ym → 납부(-)/환급(+)
         Object.entries(settleBucket).forEach(([sYM, { output, input }]) => {
-          const settlement = Math.round(input - output);
-          // 납부 > 환급 → 음수(-) = 돈 나감
-          // 환급 > 납부 → 양수(+) = 돈 들어옴
+          const settlement = Math.round(output - input);
+          // 납부 > 환급 → 양수(+) = 돈 나감
+          // 환급 > 납부 → 음수(-) = 돈 들어옴
           if (settlement === 0) return;
           // 정산월이 사업기간 안에 있으면 그 달, 없으면 마지막 달
           const targetYM = months.includes(sYM) ? sYM : lastMonth;
