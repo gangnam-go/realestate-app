@@ -1582,7 +1582,7 @@ function CashFlowCalc({ salesData, monthlyPayments, financeData, onFinanceChange
   const finTotalByMonth   = months.map((_,i)=>finFeeByMonth[i]+finMidByMonth[i]+finIntByMonth[i]);
   // 현금유출에는 수수료+중도금무이자 포함 (PF이자/원금은 상환용계좌에서 차감)
   const finFeeOnlyByMonth = months.map((_,i)=>finFeeByMonth[i]);
-  const totalOutWithFin   = totalOut.map((v,i)=>v+finFeeOnlyByMonth[i]+finMidByMonth[i]+(vatByMonthArr[i]>0?vatByMonthArr[i]:0));
+  const totalOutWithFin   = totalOut.map((v,i)=>v+finFeeOnlyByMonth[i]+finMidByMonth[i]+ (vatByMonthArr[i] < 0 ? -vatByMonthArr[i] : 0)));
   // 에쿼티 상환은 surplusByMonth에서 별도 차감 (totalOutWithFin과 분리)
 
   // ── 새 검증식: (분양수입 - 사업비지출 - 부가세납부) = (운영비계좌 + 상환용계좌) ──
@@ -1627,7 +1627,7 @@ function CashFlowCalc({ salesData, monthlyPayments, financeData, onFinanceChange
   const surplusByMonth  = months.map((_,i)=>
     (eqByMonthArr[i]||0) + (operByMonth[i]||0) - totalOutWithFin[i]
     - (eqRepayByMonth[i]||0) // 에쿼티 상환 (마지막달)
-    + (vatByMonthArr[i] < 0 ? -vatByMonthArr[i] : 0) // 부가세 환급 유입
+    + (vatByMonthArr[i] // 부가세: 환급(양수)=수입, 납부(음수)=지출
   );
 
   // 이월잔액 누적
