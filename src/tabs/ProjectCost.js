@@ -8826,7 +8826,9 @@ function calcMonthlyPayments({
     if (v !== 0) vatSettlements[sYM] = v;
     prevIdx2 = idx + 1;
   });
-
+  // 여기에 추가
+  console.log('vatSettlements 합계:', Object.values(vatSettlements).reduce((s,v)=>s+v,0));
+  console.log('vatSettlements 상세:', JSON.stringify(vatSettlements));
   // ── 항목별 재원조달 월별 배분 (에쿼티 한도 → 분양불 한도 → PF) ──
   // 각 item에 eqMonthly, saleMonthly, pfMonthly 배열 추가
   const assignFunding = (items) => items.map(item => {
