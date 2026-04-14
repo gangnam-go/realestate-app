@@ -12828,7 +12828,7 @@ function ProjectCost({ data, onChange, onSave, saving, archData, incomeData, sal
       landData, directData, indirectData,
       consultData, salesCostData, overheadData, taxData,
       paymentSchedule: data.paymentSchedule || {},
-      monthlyPayments: mpRef.current,
+      monthlyPayments,
     });
   }, [ // eslint-disable-line
     landResult.total, directResult.total, indirectResult.total,
