@@ -1609,7 +1609,7 @@ function CashFlowCalc({ salesData, monthlyPayments, financeData, onFinanceChange
   },0);
   const costTotal_   = totalOut.reduce((s,v)=>s+v,0) + finTotalByMonth.reduce((s,v)=>s+v,0);
   const vatNetPay_   = Object.values((mp?.vatSettlements)||{}).reduce((s,v)=>s+v,0);
-  const lhsCheck_    = salesTotal_ - costTotal_ - vatNetPay_;
+  const lhsCheck_    = salesTotal_ - costTotal_ + vatNetPay_;
   const lastResult_  = result[result.length-1] || {};
   const rhsCheck_    = 0; // carryByMonth 선언 후 아래에서 재계산
 
@@ -2134,7 +2134,7 @@ function CashFlowCalc({ salesData, monthlyPayments, financeData, onFinanceChange
               {ok?'✅ 검증 통과':'❌ 검증 불일치'}
             </span>
             <span style={{ color:'#555', marginLeft:'12px' }}>
-              (분양수입 {formatNumber(Math.round(salesTotal_))} - 사업비지출 {formatNumber(Math.round(costTotal_))} - 부가세납부 {formatNumber(Math.round(vatNetPay_))}) = {formatNumber(Math.round(lhsCheck_))}
+              (분양수입 {formatNumber(Math.round(salesTotal_))} - 사업비지출 {formatNumber(Math.round(costTotal_))} - 부가세납부(+)/환급(-) ${formatNumber(Math.round(vatNetPay_))}) = {formatNumber(Math.round(lhsCheck_))}
               {' vs '}
               (운영비계좌 {formatNumber(Math.round(lastCarry_))} + 상환용계좌 {formatNumber(Math.round(lastSave_))}) = {formatNumber(Math.round(rhsCheckFin_))}
               {diff > 0 && ` | 차이: ${formatNumber(Math.round(diff))}`}
