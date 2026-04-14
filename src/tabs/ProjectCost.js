@@ -11313,7 +11313,7 @@ function PaymentScheduleSection({ costSummary, landData, directData, indirectDat
 
         // 정산월이 사업기간 months 안에 있는지 확인, 없으면 마지막 달로 강제
         const lastMonth = months[months.length-1];
-        const vatSettlements = {}; // ym → 납부(+)/환급(-)
+        const vatSettlements = {}; // ym → 납부(-)/환급(+)
         Object.entries(settleBucket).forEach(([sYM, { output, input }]) => {
           const settlement = Math.round(input - output);
           // 납부 > 환급 → 음수(-) = 돈 나감
@@ -11458,7 +11458,7 @@ function PaymentScheduleSection({ costSummary, landData, directData, indirectDat
               <span style={{ color:'#27ae60' }}>① 매출VAT: 분양율탭 원천</span>
               <span style={{ color:'#2980b9' }}>② 매입VAT: 사업비 과세항목 전체</span>
               <span style={{ color:'#e67e22' }}>③ 안분VAT = ② × {(taxRatioVAT*100).toFixed(2)}% (공제 가능분)</span>
-              <span style={{ color:'#888' }}>④ 납부(+)/환급(-) = ①-③</span>
+              <span style={{ color:'#888' }}>④ 납부(-)/환급(+) = ①-③</span>
               {totalInputVat > totalDeductVat && (
                 <span style={{ color:'#c0392b' }}>※ 원가처리 {formatNumber(totalInputVat-totalDeductVat)}천원은 법인세 계산시 원가 반영</span>
               )}
