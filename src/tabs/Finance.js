@@ -1627,7 +1627,7 @@ function CashFlowCalc({ salesData, monthlyPayments, financeData, onFinanceChange
   const surplusByMonth  = months.map((_,i)=>
     (eqByMonthArr[i]||0) + (operByMonth[i]||0) - totalOutWithFin[i]
     - (eqRepayByMonth[i]||0) // 에쿼티 상환 (마지막달)
-    + vatByMonthArr[i] // 부가세: 환급(양수)=수입, 납부(음수)=지출
+    // 부가세는 totalOutWithFin에 이미 포함
   );
 
   // 이월잔액 누적
