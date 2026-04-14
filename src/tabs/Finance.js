@@ -1325,6 +1325,7 @@ function CashFlowCalc({ salesData, monthlyPayments, financeData, onFinanceChange
   });
   // ── 부가세 납부/환급 (분기별, monthlyPayments.vatSettlements) ──
   // 양수 = 납부(현금유출), 음수 = 환급(현금유입)
+  console.log('vatSettlements raw:', mp?.vatSettlements);
   const vatSettlements = mp.vatSettlements || {};
   const vatByMonthArr = months.map(ym => vatSettlements[ym] || 0);
 
