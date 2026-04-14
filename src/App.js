@@ -20,11 +20,11 @@ function App() {
   const [showSettings, setShowSettings] = useState(false);
   const [costResults,      setCostResults]      = useState({});
   const [cashFlowResult,   setCashFlowResult]   = useState(null);
-  const [settingsData,     setSettingsData]     = useState({}); // ← 추가
+  const [settingsData,     setSettingsData]     = useState({});
 
   const tabs = ['건축개요', '수입', '분양율', '사업비', '금융', '보고서', '부가세안분'];
 
-  // ── 기준정보 로드 (App 레벨 — Income 등에 공유) ──
+  // ── 기준정보 로드 ──
   const loadSettings = async () => {
     try {
       const moefSnap = await getDoc(doc(db, 'settings', 'moefStdCost'));
@@ -42,7 +42,6 @@ function App() {
 
   useEffect(() => {
     loadSettings();
-    // 기준정보 저장 시 재로드
     const handler = () => loadSettings();
     window.addEventListener('settings-saved', handler);
     return () => window.removeEventListener('settings-saved', handler);
@@ -62,7 +61,6 @@ function App() {
     setLoading(false);
   };
 
-  // ── 프로젝트 선택 시 자동 로드 ──
   useEffect(() => {
     if (project) loadAll(project);
   }, [project]);
@@ -123,6 +121,22 @@ function App() {
       await setDoc(doc(db, 'projects', project.id, 'sheets', sheet), projectData[sheet] || {});
     }
     setSaving(false);
+  };
+
+  // ── 분양율 데이터 즉시 Firestore 저장 (보고서탭 alloc 변경 시) ──
+  const handleSalesChange = async (data) => {
+    updateSheet('분양율', data);
+    // alloc 관련 키가 바뀔 때만 즉시 저장
+    const cur = projectData['분양율'] || {};
+    const allocChanged =
+      JSON.stringify(data.allocOver)     !== JSON.stringify(cur.allocOver)     ||
+      JSON.stringify(data.allocUnder)    !== JSON.stringify(cur.allocUnder)    ||
+      JSON.stringify(data.allocPublic)   !== JSON.stringify(cur.allocPublic)   ||
+      data.allocBaseRate !== cur.allocBaseRate ||
+      data.allocScenario !== cur.allocScenario;
+    if (allocChanged && project) {
+      await setDoc(doc(db, 'projects', project.id, 'sheets', '분양율'), data);
+    }
   };
 
   if (!project) {
@@ -220,7 +234,7 @@ function App() {
             settingsData={settingsData}
           />
         )}
-        {/* 분양율 — 항상 렌더링, 탭 활성 여부로 표시/숨김 */}
+        {/* 분양율 — 항상 렌더링 */}
         <div style={{ display: activeTab === '분양율' ? 'block' : 'none' }}>
           <Sales
             projectId={project.id}
@@ -244,7 +258,7 @@ function App() {
             saving={activeTab === '분양율' ? saving : false}
           />
         </div>
-        {/* 사업비 — 항상 렌더링, 탭 활성 여부로 표시/숨김 */}
+        {/* 사업비 — 항상 렌더링 */}
         <div style={{ display: activeTab === '사업비' ? 'block' : 'none' }}>
           <ProjectCost
             projectId={project.id}
@@ -293,6 +307,7 @@ function App() {
             monthlyPayments={costResults?.monthlyPayments}
             financeData={projectData['금융'] || {}}
             cashFlowResult={cashFlowResult}
+            onSalesChange={handleSalesChange}
           />
         )}
         {activeTab === '부가세안분' && (
