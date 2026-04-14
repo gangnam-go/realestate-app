@@ -1990,7 +1990,7 @@ function CashFlowCalc({ salesData, monthlyPayments, financeData, onFinanceChange
                       부가세납부(-)/환급(+)
                     </td>
                     {vatByMonthArr.map((v,i) => (
-                      <td key={i} style={{ ...tdS(isSpec(i)?G1:W, v>0?'#c0392b':'#27ae60'), borderRight:colBR(i), borderLeft:isSpec(i)?'2px solid #999':undefined }}>
+                      <td key={i} style={{ ...tdS(isSpec(i)?G1:W, v<0?'#c0392b':'#27ae60'), borderRight:colBR(i), borderLeft:isSpec(i)?'2px solid #999':undefined }}>
                         {v<0?('('+fmt(-v)+')'):v>0?fmt(v):''}
                       </td>
                     ))}
