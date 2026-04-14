@@ -8808,6 +8808,7 @@ function calcMonthlyPayments({
   const salesVatByMonth_ = salesData?.vatByMonth || {};
   // 부가세 안분율 — vatData.taxRatio 우선
   const taxRatioVAT_ = parseFloat(vatData?.taxRatio) || parseFloat(paymentSchedule?.taxRatioVAT) || 0;
+  console.log('taxRatioVAT_:', taxRatioVAT_, 'vatData:', vatData?.taxRatio, 'paymentSchedule:', paymentSchedule?.taxRatioVAT);
   // 분기 정산월: 1,4,7,10월 + 마지막 월
   const settleYMs = [...new Set([
     ...months.filter(ym => [1,4,7,10].includes(parseInt(ym.split('.')[1]))),
