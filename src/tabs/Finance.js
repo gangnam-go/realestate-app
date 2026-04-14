@@ -1298,7 +1298,31 @@ function CashFlowCalc({ salesData, monthlyPayments, financeData, onFinanceChange
       operStoreByMonth[i] += r.storeOper;
     }
   });
+// ── 기부체납 운영비/상환용 (공공주택 + 공공발코니 + 공공시설) ──
+  const allocPublic = salesData?.allocPublic || { dep: 100, mid: 100, bal: 100 };
+  const pubOperPctDep = (100 - (allocPublic.dep ?? 100)) / 100;
+  const pubOperPctMid = (100 - (allocPublic.mid ?? 100)) / 100;
+  const pubOperPctBal = (100 - (allocPublic.bal ?? 100)) / 100;
 
+  ymList.forEach((ym, idx) => {
+    const i = ymToIdx[ym];
+    if (i === undefined) return;
+    const totalPubDep =
+      (salesData?.publicDepMonthly?.[idx]||0) +
+      (salesData?.publicBalDepMonthly?.[idx]||0) +
+      (salesData?.pubfacDepMonthlyVat?.[idx]||(salesData?.pubfacDepMonthly?.[idx]||0)*1.1);
+    const totalPubMid =
+      (salesData?.publicMidMonthly?.[idx]||0) +
+      (salesData?.publicBalMidMonthly?.[idx]||0) +
+      (salesData?.pubfacMidMonthlyVat?.[idx]||(salesData?.pubfacMidMonthly?.[idx]||0)*1.1);
+    const totalPubBal =
+      (salesData?.publicBalMonthly?.[idx]||0) +
+      (salesData?.publicBalBalMonthly?.[idx]||0) +
+      (salesData?.pubfacBalMonthlyVat?.[idx]||(salesData?.pubfacBalMonthly?.[idx]||0)*1.1);
+
+    operByMonth[i] += Math.round(totalPubDep*pubOperPctDep) + Math.round(totalPubMid*pubOperPctMid) + Math.round(totalPubBal*pubOperPctBal);
+    saveByMonth[i] += Math.round(totalPubDep*(allocPublic.dep??100)/100) + Math.round(totalPubMid*(allocPublic.mid??100)/100) + Math.round(totalPubBal*(allocPublic.bal??100)/100);
+  });
   // ── 부가세 납부/환급 (분기별, monthlyPayments.vatSettlements) ──
   // 양수 = 납부(현금유출), 음수 = 환급(현금유입)
   const vatSettlements = mp.vatSettlements || {};
