@@ -1610,7 +1610,7 @@ function CashFlowCalc({ salesData, monthlyPayments, financeData, onFinanceChange
   },0);
   const costTotal_   = totalOut.reduce((s,v)=>s+v,0) + finTotalByMonth.reduce((s,v)=>s+v,0);
   const vatNetPay_   = Object.values((mp?.vatSettlements)||{}).reduce((s,v)=>s+v,0);
-  const lhsCheck_    = salesTotal_ - costTotal_ + vatNetPay_;
+  const lhsCheck_    = salesTotal_ - costTotal_ - vatNetPay_;
   const lastResult_  = result[result.length-1] || {};
   const rhsCheck_    = 0; // carryByMonth 선언 후 아래에서 재계산
 
@@ -1990,7 +1990,7 @@ function CashFlowCalc({ salesData, monthlyPayments, financeData, onFinanceChange
                       부가세납부(-)/환급(+)
                     </td>
                     {vatByMonthArr.map((v,i) => (
-                      <td key={i} style={{ ...tdS(isSpec(i)?G1:W, v<0?'#c0392b':'#27ae60'), borderRight:colBR(i), borderLeft:isSpec(i)?'2px solid #999':undefined }}>
+                      <td key={i} style={{ ...tdS(isSpec(i)?G1:W, v>0?'#c0392b':'#27ae60'), borderRight:colBR(i), borderLeft:isSpec(i)?'2px solid #999':undefined }}>
                         {v<0?('('+fmt(-v)+')'):v>0?fmt(v):''}
                       </td>
                     ))}
