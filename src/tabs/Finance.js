@@ -1989,7 +1989,7 @@ function CashFlowCalc({ salesData, monthlyPayments, financeData, onFinanceChange
                 const hasIn  = vatIn_.some(v=>v>0);
                 return (<>
                   {hasOut && row('(-) 부가세 납부', vatOut_, null, W, BK)}
-                  {hasIn  && row('(+) 부가세 환급', vatIn_,  null, W, '#27ae60')}
+                  {hasIn  && negRow('(+) 부가세 환급', vatIn_,  null, W, '#27ae60')}
                 </>);
               })()}
               {/* 현금유출 합계 */}
