@@ -1595,7 +1595,17 @@ function CashFlowCalc({ salesData, monthlyPayments, financeData, onFinanceChange
     const bal = hasVat?(salesData?.aptBalMonthlyVat?.[i]||0)+(salesData?.balBalMonthlyVat?.[i]||0)+(salesData?.offiBalMonthlyVat?.[i]||0)
                       :(salesData?.aptBalMonthly?.[i]||0)+(salesData?.balBalMonthly?.[i]||0)+(salesData?.offiBalMonthly?.[i]||0);
     const store = hasVat?(salesData?.storeMonthlyVat?.[i]||0):(salesData?.storeMonthly?.[i]||0);
-    return s+dep+mid+bal+store;
+    const pubTotal =
+      (salesData?.publicDepMonthly?.[i]||0)
+      +(salesData?.publicMidMonthly?.[i]||0)
+      +(salesData?.publicBalMonthly?.[i]||0)
+      +(salesData?.publicBalDepMonthly?.[i]||0)
+      +(salesData?.publicBalMidMonthly?.[i]||0)
+      +(salesData?.publicBalBalMonthly?.[i]||0)
+      +(salesData?.pubfacDepMonthlyVat?.[i]||(salesData?.pubfacDepMonthly?.[i]||0)*1.1)
+      +(salesData?.pubfacMidMonthlyVat?.[i]||(salesData?.pubfacMidMonthly?.[i]||0)*1.1)
+      +(salesData?.pubfacBalMonthlyVat?.[i]||(salesData?.pubfacBalMonthly?.[i]||0)*1.1);
+    return s+dep+mid+bal+store+pubTotal;
   },0);
   const costTotal_   = totalOut.reduce((s,v)=>s+v,0) + finTotalByMonth.reduce((s,v)=>s+v,0);
   const vatNetPay_   = Object.values((mp?.vatSettlements)||{}).reduce((s,v)=>s+v,0);
