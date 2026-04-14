@@ -1987,10 +1987,14 @@ function CashFlowCalc({ salesData, monthlyPayments, financeData, onFinanceChange
                 const vatIn_  = vatByMonthArr.map(v=>v<0?-v:0);
                 const hasOut = vatOut_.some(v=>v>0);
                 const hasIn  = vatIn_.some(v=>v>0);
-                return (<>
-                  {hasOut && row('(-) 부가세 납부', vatOut_, null, W, BK)}
-                  {hasIn  && negRow('(+) 부가세 환급', vatIn_,  null, W, '#27ae60')}
-                </>);
+                return (
+                  vatByMonthArr.some(v=>v!==0) && row(
+                    '부가세납부(+)/환급(-)',
+                    vatByMonthArr,
+                    null, W,
+                    vatByMonthArr.reduce((s,v)=>s+v,0) >= 0 ? '#27ae60' : '#c0392b'
+                  )
+                );
               })()}
               {/* 현금유출 합계 */}
               {row('▼ 현금유출 합계', totalOutWithFin, null, '#2c2c2c', 'white', true)}
