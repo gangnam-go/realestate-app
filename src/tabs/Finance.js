@@ -1609,7 +1609,7 @@ function CashFlowCalc({ salesData, monthlyPayments, financeData, onFinanceChange
   },0);
   const costTotal_   = totalOut.reduce((s,v)=>s+v,0) + finTotalByMonth.reduce((s,v)=>s+v,0);
   const vatNetPay_   = Object.values((mp?.vatSettlements)||{}).reduce((s,v)=>s+v,0);
-  const lhsCheck_    = salesTotal_ - costTotal_ + vatNetPay_;
+  const lhsCheck_    = salesTotal_ - costTotal_ - vatNetPay_;
   const lastResult_  = result[result.length-1] || {};
   const rhsCheck_    = 0; // carryByMonth 선언 후 아래에서 재계산
 
