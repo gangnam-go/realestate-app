@@ -12836,6 +12836,7 @@ function ProjectCost({ data, onChange, onSave, saving, archData, incomeData, sal
     consultResult.total, salesCostResult.total, overheadResult.total, taxResult.total,
     JSON.stringify(data.paymentSchedule),
     JSON.stringify(vatData),
+    JSON.stringify(salesData?.vatByMonth),
   ]);
 
   const grandTotal = landResult.total + directResult.total + indirectResult.total + consultResult.total + salesCostResult.total + overheadResult.total + taxResult.total;
