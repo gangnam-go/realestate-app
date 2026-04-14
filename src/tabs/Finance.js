@@ -1981,12 +1981,16 @@ function CashFlowCalc({ salesData, monthlyPayments, financeData, onFinanceChange
                 </>)}
               </>)}
               {/* 부가세 납부/환급 */}
-              {vatByMonthArr.some(v=>v!==0) && row(
-                '부가세납부(-)/환급(+)',
-                vatByMonthArr,
-                null, W,
-                vatByMonthArr.reduce((s,v)=>s+v,0) >= 0 ? '#27ae60' : '#c0392b'
-              )}
+              {vatByMonthArr.some(v=>v!==0) && (() => {
+                const absVals = vatByMonthArr.map(v => Math.abs(v));
+                const total = vatByMonthArr.reduce((s,v)=>s+v,0);
+                return row(
+                  '부가세납부(-)/환급(+)',
+                  absVals,
+                  null, W,
+                  total >= 0 ? '#27ae60' : '#c0392b'
+                );
+              })()}
 
               {/* 현금유출 합계 */}
               {row('▼ 현금유출 합계', totalOutWithFin, null, '#2c2c2c', 'white', true)}
