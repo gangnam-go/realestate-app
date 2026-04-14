@@ -326,17 +326,49 @@ function SaleAllocation({ salesData, projectName }) {
   ) > 0;
   const noData   = ymList.length === 0;
 
-  const [baseRate, setBaseRate] = useState(60);
-  const [scenario, setScenario] = useState('over');
-  const [alloc, setAlloc] = useState(JSON.parse(JSON.stringify(DEFAULT_ALLOC)));
+  // localStorage 키 (프로젝트명 기반으로 persist)
+  const lsKey = 'saleAlloc_' + (projectName || 'default');
+
+  const loadAlloc = () => {
+    try {
+      const saved = localStorage.getItem(lsKey);
+      if (saved) {
+        const p = JSON.parse(saved);
+        return {
+          over:   { res: { ...DEFAULT_ALLOC.over.res,   ...(p.over?.res   || {}) }, store: { ...DEFAULT_ALLOC.over.store,   ...(p.over?.store   || {}) } },
+          under:  { res: { ...DEFAULT_ALLOC.under.res,  ...(p.under?.res  || {}) }, store: { ...DEFAULT_ALLOC.under.store,  ...(p.under?.store  || {}) } },
+          public: { ...DEFAULT_ALLOC.public, ...(p.public || {}) },
+        };
+      }
+    } catch(e) {}
+    return JSON.parse(JSON.stringify(DEFAULT_ALLOC));
+  };
+
+  const [baseRate, setBaseRate] = useState(() => {
+    try { return parseInt(localStorage.getItem(lsKey + '_baseRate')) || 60; } catch(e) { return 60; }
+  });
+  const [scenario, setScenario] = useState(() => {
+    try { return localStorage.getItem(lsKey + '_scenario') || 'over'; } catch(e) { return 'over'; }
+  });
+  const [alloc, setAlloc] = useState(() => loadAlloc());
 
   const updateAlloc = (when, cat, item, val) => {
     setAlloc(prev => {
       const next = JSON.parse(JSON.stringify(prev));
       if (when === 'public') next.public[item] = val;
       else next[when][cat][item] = val;
+      try { localStorage.setItem(lsKey, JSON.stringify(next)); } catch(e) {}
       return next;
     });
+  };
+
+  const handleBaseRateChange = (val) => {
+    setBaseRate(val);
+    try { localStorage.setItem(lsKey + '_baseRate', String(val)); } catch(e) {}
+  };
+  const handleScenarioChange = (val) => {
+    setScenario(val);
+    try { localStorage.setItem(lsKey + '_scenario', val); } catch(e) {}
   };
 
   const rows = useMemo(() =>
@@ -539,7 +571,7 @@ function SaleAllocation({ salesData, projectName }) {
             <div style={{ fontWeight:'bold', fontSize:'12px', color:'#1a1a2e', marginBottom:'10px' }}>⚙ 기준 분양율</div>
             <div style={{ display:'flex', alignItems:'center', gap:'8px', marginBottom:'14px' }}>
               <input type="number" min="0" max="100" value={baseRate}
-                onChange={e => setBaseRate(parseFloat(e.target.value)||0)}
+                onChange={e => handleBaseRateChange(parseFloat(e.target.value)||0)}
                 style={{ width:'60px', padding:'5px 8px', border:'1px solid #2980b9', borderRadius:'4px', fontSize:'14px', textAlign:'center', fontWeight:'bold', color:'#1a3a5c' }} />
               <span style={{ fontSize:'14px', fontWeight:'bold', color:'#1a3a5c' }}>%</span>
             </div>
@@ -548,7 +580,7 @@ function SaleAllocation({ salesData, projectName }) {
               { val:'over',  label:`초과 기준 고정 (분양율 ≥ ${baseRate}%)` },
               { val:'under', label:`미만 기준 고정 (분양율 < ${baseRate}%)` },
             ].map(opt => (
-              <label key={opt.val} onClick={() => setScenario(opt.val)}
+              <label key={opt.val} onClick={() => handleScenarioChange(opt.val)}
                 style={{ display:'flex', alignItems:'center', gap:'6px', cursor:'pointer', padding:'4px 8px', borderRadius:'4px', marginBottom:'2px', backgroundColor:scenario===opt.val?'#e8f0f8':'transparent' }}>
                 <div style={{ width:'12px', height:'12px', borderRadius:'50%', flexShrink:0, border:`2px solid ${scenario===opt.val?'#1a3a5c':'#aaa'}`, backgroundColor:scenario===opt.val?'#1a3a5c':'white' }} />
                 <span style={{ fontSize:'11px', color:scenario===opt.val?'#1a3a5c':'#555' }}>{opt.label}</span>
@@ -654,7 +686,14 @@ function SaleAllocation({ salesData, projectName }) {
                 }
                 const rowSum = sum(row.key);
                 const isGrandRow = ['totalSave','totalOper','total'].includes(row.key);
-                if (!isGrandRow && rowSum === 0) return null;
+                // label 있는 행(상환용)은 rowSum=0이어도 표시, label 없는 쌍(운영비)만 숨김
+                const isPairOper = !row.label && row.sub === '운영비';
+                if (!isGrandRow && rowSum === 0 && isPairOper) return null;
+                // 기타 금액 0이고 label 있는 행: 기부체납 행은 항상 표시, 일반 행은 숨김
+                if (!isGrandRow && rowSum === 0 && !isPairOper) {
+                  const isPub = row.key && row.key.startsWith('pub');
+                  if (!isPub) return null;
+                }
 
                 return (
                   <tr key={row.key}>
