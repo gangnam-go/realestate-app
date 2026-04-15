@@ -256,6 +256,7 @@ function App() {
             }}
             onSave={() => saveSheet('분양율')}
             saving={activeTab === '분양율' ? saving : false}
+            onSalesChange={handleSalesChange}  
           />
         </div>
         {/* 사업비 — 항상 렌더링 */}
