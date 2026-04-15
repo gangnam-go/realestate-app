@@ -11435,7 +11435,7 @@ function PaymentScheduleSection({ costSummary, landData, directData, indirectDat
                   {/* ④ 분기별 납부/환급 */}
                   <tr style={{ backgroundColor:'#fff8e1' }}>
                     <td style={{ ...tdS, fontWeight:'bold', color:'#e65100', position:'sticky', left:0, backgroundColor:'#fff8e1', zIndex:1 }}>
-                      ④ 분기별 납부(-)/환급(+)
+                      ④ 분기별 납부(+)/환급(-)
                       <div style={{ fontSize:'9px', color:'#aaa' }}>①-③ 기준, 1·4·7·10월 (미도래시 마지막달)</div>
                     </td>
                     <td style={{ ...tdS, textAlign:'right', fontWeight:'bold',
