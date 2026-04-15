@@ -1993,7 +1993,7 @@ function CashFlowCalc({ salesData, monthlyPayments, financeData, onFinanceChange
                 return (
                   <tr>
                     <td style={{ ...tdS(W,'#7d5a00'), textAlign:'left', paddingLeft:'10px', ...stickyL, backgroundColor:W }}>
-                      부가세납부(-)/환급(+)
+                      부가세납부(+)/환급(-)
                     </td>
                     {vatByMonthArr.map((v,i) => (
                       <td key={i} style={{ ...tdS(isSpec(i)?G1:W, v>0?'#c0392b':'#27ae60'), borderRight:colBR(i), borderLeft:isSpec(i)?'2px solid #999':undefined }}>
@@ -2150,7 +2150,7 @@ function CashFlowCalc({ salesData, monthlyPayments, financeData, onFinanceChange
               {ok?'✅ 검증 통과':'❌ 검증 불일치'}
             </span>
             <span style={{ color:'#555', marginLeft:'12px' }}>
-              (분양수입 {formatNumber(Math.round(salesTotal_))} - 사업비지출 {formatNumber(Math.round(costTotal_))} - 부가세납부(-)/환급(+) {formatNumber(Math.round(vatNetPay_))}) = {formatNumber(Math.round(lhsCheck_))}
+              (분양수입 {formatNumber(Math.round(salesTotal_))} - 사업비지출 {formatNumber(Math.round(costTotal_))} - 부가세납부(+)/환급(-) {formatNumber(Math.round(vatNetPay_))}) = {formatNumber(Math.round(lhsCheck_))}
               {' vs '}
               (운영비계좌 {formatNumber(Math.round(lastCarry_))} + 상환용계좌 {formatNumber(Math.round(lastSave_))}) = {formatNumber(Math.round(rhsCheckFin_))}
               {diff > 0 && ` | 차이: ${formatNumber(Math.round(diff))}`}
