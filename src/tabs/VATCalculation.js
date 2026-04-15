@@ -121,24 +121,26 @@ function VATCalculation({ data, onChange, archData, incomeData }) {
   const taxRatio    = totalCalcM2 > 0 ? taxableM2  / totalCalcM2 : 0;
   const exemptRatio = totalCalcM2 > 0 ? exemptM2   / totalCalcM2 : 0;
 
+  // 선택된 방식에 따라 최종 taxRatio 결정  ← 추가
+  const finalTaxRatio    = annunMethod === 'area' ? taxRatioArea    : taxRatio;
+  const finalExemptRatio = annunMethod === 'area' ? exemptRatioArea : exemptRatio;
+  
   // ── taxRatio/finalVAT 변경 시 자동 저장 ──
   useEffect(() => {
     if (!onChange) return;
     const buildStdAmt_ = totalFloorM2 * moefCostVal;
     const landStdAmt_  = pubLandAmt;
     const totalStdAmt_ = buildStdAmt_ + landStdAmt_;
-    const buildStdRatio_ = totalStdAmt_ > 0 ? buildStdAmt_ / totalStdAmt_ : 0;
-    const buildTaxable_  = totalSaleAmt * buildStdRatio_ * taxRatio;
-    const finalVAT_      = buildTaxable_ * 0.1;
-    // 이전 값과 다를 때만 저장 (무한루프 방지)
+    const buildTaxable_  = totalSaleAmt * buildStdRatio_ * finalTaxRatio;
+    ...
     if (
-      Math.abs((data?.taxRatio || 0) - taxRatio) > 0.00001 ||
-      Math.abs((data?.finalVAT || 0) - finalVAT_) > 1
+      Math.abs((data?.taxRatio || 0) - finalTaxRatio) > 0.00001 ||
+      Math.abs((data?.finalVAT || 0) - finalVAT_) > 1 ||
+      (data?.annunMethod || 'price') !== annunMethod
     ) {
-      onChange({ ...(data||{}), taxRatio, finalVAT: Math.round(finalVAT_) });
+      onChange({ ...(data||{}), taxRatio: finalTaxRatio, finalVAT: Math.round(finalVAT_), annunMethod });
     }
-  }, [taxRatio, totalSaleAmt, totalFloorM2, moefCostVal, pubLandAmt]); // eslint-disable-line
-
+    }, [finalTaxRatio, totalSaleAmt, totalFloorM2, moefCostVal, pubLandAmt, annunMethod]);
   // ── 기준시가 계산 ──
   const buildStdAmt = totalFloorM2 * moefCostVal;  // 건물기준시가(원)
   const landStdAmt  = pubLandAmt;                   // 토지기준시가(원)
