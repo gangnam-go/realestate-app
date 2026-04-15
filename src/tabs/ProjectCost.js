@@ -11446,9 +11446,9 @@ function PaymentScheduleSection({ costSummary, landData, directData, indirectDat
                       const v = vatSettlements[ym];
                       if(!v) return <td key={ym} style={{ ...tdS, textAlign:'right', color:'#ddd' }}>—</td>;
                       return <td key={ym} style={{ ...tdS, textAlign:'right', fontWeight:'bold',
-                        color: v>=0?'#e74c3c':'#27ae60',
-                        backgroundColor: v>=0?'#fdecea':'#e8f5e9' }}>
-                        {v>=0?'+':''}{formatNumber(v)}
+                        color: v<=0?'#e74c3c':'#27ae60',
+                        backgroundColor: v<=0?'#fdecea':'#e8f5e9' }}>
+                        {v<0?formatNumber(-v):v>0?'('+formatNumber(v)+')':''}
                       </td>;
                     })}
                     <td style={{ ...tdS, textAlign:'right', fontWeight:'bold',
