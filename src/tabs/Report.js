@@ -867,6 +867,7 @@ function CashFlow({ salesData, monthlyPayments, financeData, projectName, cashFl
   const costVatTotals_     = months.map((_,i) => costRows.reduce((s,r) => s+getCostVat_(r.key,months[i]), 0));
   const finTotals          = months.map(ym => getFinanceCost(ym));
   const vatSettle          = months.map(ym => mp.vatSettlements?.[ym] || 0);
+  console.log('vatSettle 합계:', vatSettle.reduce((s,v)=>s+v,0));
   const netCash            = months.map((_,i) => incomeTotals[i] - costTotals[i] - finTotals[i] - vatSettle[i]);
   const cumulative         = months.reduce((acc,_,i) => { acc.push((acc[i-1]||0)+netCash[i]); return acc; }, []);
 
