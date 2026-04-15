@@ -2008,7 +2008,7 @@ function CashFlowCalc({ salesData, monthlyPayments, financeData, onFinanceChange
               })()}
 
               {/* 현금유출 합계 */}
-              {row('▼ 현금유출 합계', totalOutWithFin, null, '#2c2c2c', 'white', true)}
+              {row('▼ 현금유출 합계', totalOutWithFin.map((v,i)=>v+(eqRepayByMonth[i]||0)), null, '#2c2c2c', 'white', true)}
               {divider(4, '#555')}
             </>)}
 
