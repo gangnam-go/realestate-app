@@ -1950,8 +1950,10 @@ function CashFlowCalc({ salesData, monthlyPayments, financeData, onFinanceChange
                   </td>
                 </tr>
               )}
+              {/* (8) 금융비용 소계 */}
+              {row('소계', months.map((_,i)=>finFeeOnlyByMonth[i]+finMidByMonth[i]), null, G2, BK, true)}
               {divider()}
-
+      
               {/* (9) Equity 및 대여금 상환 */}
               {eqTotal > 0 && (<>
                 <tr style={{ cursor:'pointer' }} onClick={()=>toggleSection('eqRepay')}>
