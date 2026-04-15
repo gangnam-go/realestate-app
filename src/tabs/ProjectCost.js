@@ -8809,6 +8809,7 @@ function calcMonthlyPayments({
   console.log('salesVatByMonth_ 합계:', Object.values(salesVatByMonth_).reduce((s,v)=>s+v,0));
   // 부가세 안분율 — vatData.taxRatio 우선
   const taxRatioVAT_ = parseFloat(vatData?.taxRatio) || parseFloat(paymentSchedule?.taxRatioVAT) || 0;
+  console.log('vatData 전체:', JSON.stringify(vatData));
   console.log('taxRatioVAT_:', taxRatioVAT_, 'vatData:', vatData?.taxRatio, 'paymentSchedule:', paymentSchedule?.taxRatioVAT);
   // 분기 정산월: 1,4,7,10월 + 마지막 월
   const settleYMs = [...new Set([
