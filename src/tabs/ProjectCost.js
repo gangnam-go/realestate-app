@@ -8824,7 +8824,7 @@ function calcMonthlyPayments({
     const period = months.slice(prevIdx2, idx+1);
     const outVat = period.reduce((s,ym) => s + (salesVatByMonth_[ym]||0), 0);
     const inVat  = period.reduce((s,ym) => s + (inputVatByMonth_[ym]||0), 0);
-    const v = Math.round(inVat * taxRatioVAT_ - outVat);
+    const v = Math.round(outVat - inVat * taxRatioVAT_);
     if (v !== 0) vatSettlements[sYM] = v;
     prevIdx2 = idx + 1;
   });
