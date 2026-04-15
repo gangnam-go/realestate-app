@@ -1327,7 +1327,7 @@ function CashFlowCalc({ salesData, monthlyPayments, financeData, onFinanceChange
   // 양수 = 납부(현금유출), 음수 = 환급(현금유입)
   console.log('vatSettlements raw:', JSON.stringify(mp?.vatSettlements));
   const vatSettlements = mp.vatSettlements || {};
-  const vatByMonthArr = months.map(ym => -(vatSettlements[ym] || 0));
+  const vatByMonthArr = months.map(ym => vatSettlements[ym] || 0); // 반전 제거
 
   // ── 카테고리별 세부항목 월별 집계 ──
   const CAT_KEYS = [
