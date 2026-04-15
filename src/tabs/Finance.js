@@ -2018,7 +2018,7 @@ function CashFlowCalc({ salesData, monthlyPayments, financeData, onFinanceChange
               {/* 분양불 유입 */}
               {row('(+) 분양수입 (운영비)', operByMonth, null, '#e8f5ec', '#1a5c2a', false)}
               {/* 사업비 지출 */}
-              {negRow('(-) 사업비 지출', totalOut, null, '#fdf8f8', '#555', false)}
+              {negRow('(-) 사업비 지출', totalOutWithFin, null, '#fdf8f8', '#555', false)}
 
               {divider()}
               {/* 과부족 */}
