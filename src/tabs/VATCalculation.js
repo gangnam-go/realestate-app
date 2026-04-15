@@ -257,7 +257,15 @@ function VATCalculation({ data, onChange, archData, incomeData }) {
         {row(<>과세면적 (㎡) {autoTag}</>, `${fmtN(taxableM2)} ㎡`, '#e74c3c', false, 'offi+store 전용면적×세대수')}
         {row(<>면세면적 (㎡) {autoTag}</>, `${fmtN(exemptM2)} ㎡`, '#27ae60', false, 'apt 85㎡ 이하 전용면적×세대수')}
         {row('과세비율', `${(finalTaxRatio*100).toFixed(2)} %`, '#e74c3c')}
-        {row('면세비율', `${(finalExemptRatio*100).toFixed(2)} %`, '#27ae60')}   
+        {row('면세비율', `${(finalExemptRatio*100).toFixed(2)} %`, '#27ae60')}
+        {annunMethod === 'area' && (
+          <div style={{ marginTop: '8px', padding: '10px 14px', backgroundColor: '#e8f5ec', borderRadius: '6px', border: '1px solid #a9dfbf', fontSize: '12px' }}>
+            <div style={{ fontWeight: 'bold', color: '#1a5c2a', marginBottom: '6px' }}>📐 공급면적 기준 계산</div>
+            {row('분모 (공동+공공+오피+상가)', `${fmtN(areaDenominator)} ㎡`, '#1a5c2a')}
+            {row('과세 분자 (85초과+오피+상가)', `${fmtN(areaTaxable)} ㎡`, '#e74c3c')}
+            {row('면세 분자 (85이하)', `${fmtN(areaExempt)} ㎡`, '#27ae60')}
+          </div>
+        )}
       </div>
 
       {/* 기준시가 계산 */}
