@@ -131,8 +131,9 @@ function VATCalculation({ data, onChange, archData, incomeData }) {
     const buildStdAmt_ = totalFloorM2 * moefCostVal;
     const landStdAmt_  = pubLandAmt;
     const totalStdAmt_ = buildStdAmt_ + landStdAmt_;
+    const buildStdRatio_ = totalStdAmt_ > 0 ? buildStdAmt_ / totalStdAmt_ : 0;
     const buildTaxable_  = totalSaleAmt * buildStdRatio_ * finalTaxRatio;
-    ...
+    const finalVAT_      = buildTaxable_ * 0.1;
     if (
       Math.abs((data?.taxRatio || 0) - finalTaxRatio) > 0.00001 ||
       Math.abs((data?.finalVAT || 0) - finalVAT_) > 1 ||
@@ -140,7 +141,7 @@ function VATCalculation({ data, onChange, archData, incomeData }) {
     ) {
       onChange({ ...(data||{}), taxRatio: finalTaxRatio, finalVAT: Math.round(finalVAT_), annunMethod });
     }
-    }, [finalTaxRatio, totalSaleAmt, totalFloorM2, moefCostVal, pubLandAmt, annunMethod]);
+  }, [finalTaxRatio, totalSaleAmt, totalFloorM2, moefCostVal, pubLandAmt, annunMethod]); // eslint-disable-line
   // ── 기준시가 계산 ──
   const buildStdAmt = totalFloorM2 * moefCostVal;  // 건물기준시가(원)
   const landStdAmt  = pubLandAmt;                   // 토지기준시가(원)
@@ -151,8 +152,8 @@ function VATCalculation({ data, onChange, archData, incomeData }) {
 
   // ── 안분 계산 결과 ──
   const landExempt   = totalSaleAmt * landStdRatio;
-  const buildExempt  = totalSaleAmt * buildStdRatio * exemptRatio;
-  const buildTaxable = totalSaleAmt * buildStdRatio * taxRatio;
+  const buildExempt  = totalSaleAmt * buildStdRatio * finalExemptRatio;
+  const buildTaxable = totalSaleAmt * buildStdRatio * finalTaxRatio;
   const finalVAT     = buildTaxable * 0.1;
 
   const checkSum = landExempt + buildExempt + buildTaxable;
@@ -185,6 +186,34 @@ function VATCalculation({ data, onChange, archData, incomeData }) {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
         <h3 style={{ margin: 0 }}>부가세 안분</h3>
         <div style={{ fontSize: '12px', color: '#888' }}>부가가치세법 시행령 제64조</div>
+      </div>
+
+      {/* 안분 방식 선택 */}
+      <div style={{ ...sectionBox, backgroundColor: '#f0f4f8', borderColor: '#2980b9' }}>
+        {secTitle('■ 부가세 안분 방식 선택', '#1a5276')}
+        <div style={{ display: 'flex', gap: '16px' }}>
+          {[
+            { val: 'price', label: '공급가액 기준', desc: '기준시가 안분 후 과세비율 적용 (부가가치세법 시행령 제64조)' },
+            { val: 'area',  label: '공급면적 기준', desc: '과세/면세 공급면적 비율로 직접 산정 (공공주택 포함, 공공시설 제외)' },
+          ].map(opt => (
+            <label key={opt.val} onClick={() => setAnnunMethod(opt.val)}
+              style={{ flex: 1, padding: '12px 16px', border: `2px solid ${annunMethod === opt.val ? '#2980b9' : '#ddd'}`,
+                borderRadius: '8px', cursor: 'pointer', backgroundColor: annunMethod === opt.val ? '#e8f0f8' : 'white' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div style={{ width: '16px', height: '16px', borderRadius: '50%',
+                  border: `2px solid ${annunMethod === opt.val ? '#2980b9' : '#aaa'}`,
+                  backgroundColor: annunMethod === opt.val ? '#2980b9' : 'white',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  {annunMethod === opt.val && <div style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: 'white' }} />}
+                </div>
+                <span style={{ fontWeight: 'bold', fontSize: '13px', color: annunMethod === opt.val ? '#1a5276' : '#333' }}>
+                  {opt.label}
+                </span>
+              </div>
+              <div style={{ fontSize: '11px', color: '#666', marginTop: '4px', paddingLeft: '24px' }}>{opt.desc}</div>
+            </label>
+          ))}
+        </div>
       </div>
 
       {/* 행안부 신축가격기준액 선택 */}
@@ -227,8 +256,8 @@ function VATCalculation({ data, onChange, archData, incomeData }) {
         <div style={{ height: '8px' }} />
         {row(<>과세면적 (㎡) {autoTag}</>, `${fmtN(taxableM2)} ㎡`, '#e74c3c', false, 'offi+store 전용면적×세대수')}
         {row(<>면세면적 (㎡) {autoTag}</>, `${fmtN(exemptM2)} ㎡`, '#27ae60', false, 'apt 85㎡ 이하 전용면적×세대수')}
-        {row('과세비율', `${(taxRatio*100).toFixed(2)} %`, '#e74c3c')}
-        {row('면세비율', `${(exemptRatio*100).toFixed(2)} %`, '#27ae60')}
+        {row('과세비율', `${(finalTaxRatio*100).toFixed(2)} %`, '#e74c3c')}
+        {row('면세비율', `${(finalExemptRatio*100).toFixed(2)} %`, '#27ae60')}   
       </div>
 
       {/* 기준시가 계산 */}
@@ -247,8 +276,8 @@ function VATCalculation({ data, onChange, archData, incomeData }) {
         {secTitle('■ 안분 계산 결과', '#e65100')}
 
         {formula(`토지 (면세) = ${fmtN(totalSaleAmt)} × ${(landStdRatio*100).toFixed(4)}% = ${fmtN(landExempt)}원`)}
-        {formula(`건물 (면세) = ${fmtN(totalSaleAmt)} × ${(buildStdRatio*100).toFixed(4)}% × ${(exemptRatio*100).toFixed(2)}% = ${fmtN(buildExempt)}원`)}
-        {formula(`건물 (과세) = ${fmtN(totalSaleAmt)} × ${(buildStdRatio*100).toFixed(4)}% × ${(taxRatio*100).toFixed(2)}% = ${fmtN(buildTaxable)}원`)}
+        {formula(`건물 (면세) = ${fmtN(totalSaleAmt)} × ${(buildStdRatio*100).toFixed(4)}% × ${(finalExemptRatio*100).toFixed(2)}% = ${fmtN(buildExempt)}원`)}
+        {formula(`건물 (과세) = ${fmtN(totalSaleAmt)} × ${(buildStdRatio*100).toFixed(4)}% × ${(finalTaxRatio*100).toFixed(2)}% = ${fmtN(buildTaxable)}원`)}
 
         <div style={{ marginTop: '12px', backgroundColor: 'white', borderRadius: '6px', padding: '12px 16px', border: '1px solid #eee' }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '10px' }}>
@@ -278,7 +307,7 @@ function VATCalculation({ data, onChange, archData, incomeData }) {
           <div style={{ fontWeight: 'bold', marginBottom: '6px', color: '#e65100' }}>[안분비율]</div>
           <div>토지기준시가: {fmtN(landStdAmt)} 원</div>
           <div>건물기준시가: {fmtN(buildStdAmt)} 원</div>
-          <div>과세면적비율: {(taxRatio*100).toFixed(2)} %</div>
+          <div>과세면적비율: {(finalTaxRatio*100).toFixed(2)} %</div>
         </div>
 
         {/* 총분양가 대비차 */}
