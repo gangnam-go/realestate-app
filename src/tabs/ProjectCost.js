@@ -11347,8 +11347,8 @@ function PaymentScheduleSection({ costSummary, landData, directData, indirectDat
               <div style={{ fontSize:'12px', fontWeight:'normal', color:'#555' }}>
                 과세비율: <strong style={{ color:CAT_COLOR }}>{(taxRatioVAT*100).toFixed(2)}%</strong>
                 &nbsp;|&nbsp;
-                <span style={{ color: totalSettlement>=0?'#e74c3c':'#27ae60', fontWeight:'bold' }}>
-                  {totalSettlement>=0?'순납부':'순환급'}: {formatNumber(Math.abs(totalSettlement))} 천원
+                color: totalSettlement<=0?'#e74c3c':'#27ae60', fontWeight:'bold' }}>
+                  {totalSettlement<=0?'순납부':'순환급'}: {formatNumber(Math.abs(totalSettlement))} 천원
                 </span>
               </div>
             </div>
@@ -11439,8 +11439,8 @@ function PaymentScheduleSection({ costSummary, landData, directData, indirectDat
                       <div style={{ fontSize:'9px', color:'#aaa' }}>①-③ 기준, 1·4·7·10월 (미도래시 마지막달)</div>
                     </td>
                     <td style={{ ...tdS, textAlign:'right', fontWeight:'bold',
-                      color: totalSettlement>=0?'#e74c3c':'#27ae60' }}>
-                      {totalSettlement>=0?'+':''}{formatNumber(totalSettlement)}
+                      color: totalSettlement<=0?'#e74c3c':'#27ae60' }}>
+                      {totalSettlement<0?formatNumber(-totalSettlement):totalSettlement>0?'('+formatNumber(totalSettlement)+')':''}
                     </td>
                     {months.map(ym => {
                       const v = vatSettlements[ym];
@@ -11452,8 +11452,8 @@ function PaymentScheduleSection({ costSummary, landData, directData, indirectDat
                       </td>;
                     })}
                     <td style={{ ...tdS, textAlign:'right', fontWeight:'bold',
-                      color: totalSettlement>=0?'#e74c3c':'#27ae60' }}>
-                      {totalSettlement>=0?'+':''}{formatNumber(totalSettlement)}
+                      color: totalSettlement<=0?'#e74c3c':'#27ae60' }}>
+                      {totalSettlement<0?formatNumber(-totalSettlement):totalSettlement>0?'('+formatNumber(totalSettlement)+')':''}
                     </td>
                   </tr>
                 </tbody>
