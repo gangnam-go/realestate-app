@@ -8821,12 +8821,12 @@ function calcMonthlyPayments({
   settleYMs.forEach(sYM => {
     const idx = months.indexOf(sYM);
     if (idx < 0) return;
-    const period = months.slice(prevIdx2, idx+1);
+    const period = months.slice(prevIdx2, idx);
     const outVat = period.reduce((s,ym) => s + (salesVatByMonth_[ym]||0), 0);
     const inVat  = period.reduce((s,ym) => s + (inputVatByMonth_[ym]||0), 0);
     const v = Math.round(inVat * taxRatioVAT_ - outVat);
     if (v !== 0) vatSettlements[sYM] = v;
-    prevIdx2 = idx + 1;
+    prevIdx2 = idx;
   });
   // 여기에 추가
   console.log('vatSettlements 합계:', Object.values(vatSettlements).reduce((s,v)=>s+v,0));
