@@ -1982,7 +1982,11 @@ function CashFlowCalc({ salesData, monthlyPayments, financeData, onFinanceChange
                     <td style={{ ...tdS(G1,'#aaa',true), borderLeft:'2px solid #999' }}>—</td>
                   </tr>
                 </>)}
+                {/* (9) 소계 */}
+                {row('소계', eqRepayByMonth, null, G2, BK, true)}
+                {divider()}
               </>)}
+                     
               {/* 부가세 납부/환급 */}
               {vatByMonthArr.some(v=>v!==0) && (() => {
                 const total = vatByMonthArr.reduce((s,v)=>s+v,0);
