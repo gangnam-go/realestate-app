@@ -126,15 +126,7 @@ function App() {
   // ── 분양율 데이터 즉시 Firestore 저장 (보고서탭 alloc 변경 시) ──
   const handleSalesChange = async (data) => {
     updateSheet('분양율', data);
-    // alloc 관련 키가 바뀔 때만 즉시 저장
-    const cur = projectData['분양율'] || {};
-    const allocChanged =
-      JSON.stringify(data.allocOver)     !== JSON.stringify(cur.allocOver)     ||
-      JSON.stringify(data.allocUnder)    !== JSON.stringify(cur.allocUnder)    ||
-      JSON.stringify(data.allocPublic)   !== JSON.stringify(cur.allocPublic)   ||
-      data.allocBaseRate !== cur.allocBaseRate ||
-      data.allocScenario !== cur.allocScenario;
-    if (allocChanged && project) {
+    if (project) {
       await setDoc(doc(db, 'projects', project.id, 'sheets', '분양율'), data);
     }
   };
