@@ -11347,7 +11347,7 @@ function PaymentScheduleSection({ costSummary, landData, directData, indirectDat
               <div style={{ fontSize:'12px', fontWeight:'normal', color:'#555' }}>
                 과세비율: <strong style={{ color:CAT_COLOR }}>{(taxRatioVAT*100).toFixed(2)}%</strong>
                 &nbsp;|&nbsp;
-                color: totalSettlement<=0?'#e74c3c':'#27ae60', fontWeight:'bold' }}>
+                <span style={{ color: totalSettlement<=0?'#e74c3c':'#27ae60', fontWeight:'bold' }}>
                   {totalSettlement<=0?'순납부':'순환급'}: {formatNumber(Math.abs(totalSettlement))} 천원
                 </span>
               </div>
