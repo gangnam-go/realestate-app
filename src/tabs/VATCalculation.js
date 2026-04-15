@@ -10,6 +10,7 @@ function VATCalculation({ data, onChange, archData, incomeData }) {
   const [moefCosts, setMoefCosts]   = useState([]);
   const [selectedYear,  setSelectedYear]  = useState('2026');
   const [selectedUsage, setSelectedUsage] = useState('주거용(아파트 등)');
+  const [annunMethod, setAnnunMethod] = useState(data?.annunMethod || 'price');  // ← 추가
 
   // 행안부 신축가격기준액 로드
   useEffect(() => {
