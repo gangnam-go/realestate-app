@@ -842,7 +842,7 @@ function SalesSection({ title, color, patterns, config, setConfig, isStore, tota
   );
 }
 
-function Sales({ data, incomeData, archData, onChange, onSave, saving }) {
+function Sales({ data, incomeData, archData, onChange, onSave, saving, onSalesChange }) {
   const prepPeriod      = parseFloat(parseNumber(archData.prepPeriod))      || 0;
   const constructPeriod = parseFloat(parseNumber(archData.constructPeriod)) || 31;
   const settlePeriod    = parseFloat(parseNumber(archData.settlePeriod))    || 6;
