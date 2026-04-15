@@ -55,12 +55,45 @@ function VATCalculation({ data, onChange, archData, incomeData }) {
   const totalFloorM2 = aboveM2 + underM2;
 
   // ── 수입탭 연동 ──
-  const aptRows   = incomeData?.aptRows   || [];
-  const offiRows  = incomeData?.offiRows  || [];
-  const storeRows = incomeData?.storeRows || [];
+  const aptRows    = incomeData?.aptRows    || [];
+  const publicRows = incomeData?.publicRows || [];  // ← 추가
+  const offiRows   = incomeData?.offiRows   || [];
+  const storeRows  = incomeData?.storeRows  || [];
   // const balcony   = incomeData?.balcony   || {};
   // const balBurden = incomeData?.balconyBurden || '분양자 부담';
 
+  // ── 공급면적 기준 계산 ──
+  const calcSupM2 = (rows) => rows.reduce((s, r) => {
+    const excl = p(r.excl_m2), wall = p(r.wall_m2), core = p(r.core_m2);
+    const units = p(r.units);
+    return s + (excl + wall + core) * units;
+  }, 0);
+
+  const calcSupM2Taxable = (rows) => rows.reduce((s, r) => {
+    const excl = p(r.excl_m2), wall = p(r.wall_m2), core = p(r.core_m2);
+    const units = p(r.units);
+    return s + (excl > 85 ? (excl + wall + core) * units : 0);
+  }, 0);
+
+  const calcSupM2Exempt = (rows) => rows.reduce((s, r) => {
+    const excl = p(r.excl_m2), wall = p(r.wall_m2), core = p(r.core_m2);
+    const units = p(r.units);
+    return s + (excl <= 85 ? (excl + wall + core) * units : 0);
+  }, 0);
+
+  // aptRows, publicRows, offiRows, storeRows (pubfacRows 제외)
+  const areaAptAll   = calcSupM2(aptRows);
+  const areaPublicAll= calcSupM2(publicRows);
+  const areaOffi     = calcSupM2(offiRows);
+  const areaStore    = calcSupM2(storeRows);
+
+  const areaDenominator = areaAptAll + areaPublicAll + areaOffi + areaStore;
+
+  const areaTaxable = calcSupM2Taxable(aptRows) + calcSupM2Taxable(publicRows) + areaOffi + areaStore;
+  const areaExempt  = calcSupM2Exempt(aptRows)  + calcSupM2Exempt(publicRows);
+
+  const taxRatioArea   = areaDenominator > 0 ? areaTaxable / areaDenominator : 0;
+  const exemptRatioArea= areaDenominator > 0 ? areaExempt  / areaDenominator : 0;
   // 총분양가(VAT제외) = apt+offi+store (발코니 제외, 천원 단위)
   const calcIncome = (rows, mode) => rows.reduce((s, r) => {
     const excl=p(r.excl_m2), wall=p(r.wall_m2), core=p(r.core_m2);
