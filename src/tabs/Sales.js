@@ -1152,7 +1152,7 @@ function Sales({ data, incomeData, archData, onChange, onSave, saving, onSalesCh
       'storeDepMonthly','storeMidMonthly','storeBalMonthly',
       'aptVatMonthly','offiVatMonthly','storeVatMonthly','pubfacVatMonthly'];
     const isFirstSave = !data?.storeDepMonthly && !data?.aptVatMonthly;
-    const changed = isFirstSave || keys.some(k => JSON.stringify(data?.[k]) !== JSON.stringify(newData[k]));
+    const changed = !isFirstSave && keys.some(k => JSON.stringify(data?.[k]) !== JSON.stringify(newData[k]));
     console.log('isFirstSave:', isFirstSave, 'changed:', changed, 'allocPublic:', data?.allocPublic, 'publicConfig:', data?.publicConfig);
     if (changed) onChange(newData);
   }, [JSON.stringify(allVat), JSON.stringify(ymList), // eslint-disable-line
