@@ -355,7 +355,7 @@ function SaleAllocation({ salesData, projectName, onSalesChange }) {
   const ymKey = `${(salesData?.ymList||[])[0]||''}_${(salesData?.ymList||[]).length}`;
   const prevYmKey = React.useRef(ymKey);
   React.useEffect(() => {
-    console.log('ymKey changed:', ymKey, 'prev:', prevYmKey.current);
+    
     if (prevYmKey.current !== ymKey) {
       prevYmKey.current = ymKey;
       setAlloc(loadAlloc(salesData));
@@ -378,7 +378,7 @@ function SaleAllocation({ salesData, projectName, onSalesChange }) {
   };
 
   const updateAlloc = (when, cat, item, val) => {
-    console.log('updateAlloc:', when, cat, item, val);
+    
     setAlloc(prev => {
       const next = JSON.parse(JSON.stringify(prev));
       if (when === 'public') next.public[item] = val;
