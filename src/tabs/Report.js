@@ -371,6 +371,7 @@ function SaleAllocation({ salesData, projectName, onSalesChange }) {
   };
 
   const updateAlloc = (when, cat, item, val) => {
+    console.log('updateAlloc:', when, cat, item, val);
     setAlloc(prev => {
       const next = JSON.parse(JSON.stringify(prev));
       if (when === 'public') next.public[item] = val;
