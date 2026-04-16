@@ -8806,11 +8806,9 @@ function calcMonthlyPayments({
   });
   // 매출VAT (분양율탭 vatByMonth)
   const salesVatByMonth_ = salesData?.vatByMonth || {};
-  console.log('salesVatByMonth_ 합계:', Object.values(salesVatByMonth_).reduce((s,v)=>s+v,0));
   // 부가세 안분율 — vatData.taxRatio 우선
   const taxRatioVAT_ = parseFloat(vatData?.taxRatio) || parseFloat(paymentSchedule?.taxRatioVAT) || 0;
-  console.log('vatData 전체:', JSON.stringify(vatData));
-  console.log('taxRatioVAT_:', taxRatioVAT_, 'vatData:', vatData?.taxRatio, 'paymentSchedule:', paymentSchedule?.taxRatioVAT);
+  
   // 분기 정산월: 1,4,7,10월 + 마지막 월
   const settleYMs = [...new Set([
     ...months.filter(ym => [1,4,7,10].includes(parseInt(ym.split('.')[1]))),
@@ -8829,8 +8827,6 @@ function calcMonthlyPayments({
     prevIdx2 = idx;
   });
   // 여기에 추가
-  console.log('vatSettlements 합계:', Object.values(vatSettlements).reduce((s,v)=>s+v,0));
-  console.log('vatSettlements 상세:', JSON.stringify(vatSettlements));
   // ── 항목별 재원조달 월별 배분 (에쿼티 한도 → 분양불 한도 → PF) ──
   // 각 item에 eqMonthly, saleMonthly, pfMonthly 배열 추가
   const assignFunding = (items) => items.map(item => {
@@ -8895,7 +8891,6 @@ function calcMonthlyPayments({
   const taxItemsF      = assignFunding(tax.items     ||[]);
   const overheadItemsF = assignFunding(overhead.items||[]);
 
-  console.log('return 직전 vatSettlements 합계:', Object.values(vatSettlements).reduce((s,v)=>s+v,0));
   return {
     months,
     land:        land.totals,     landVat:     land.vatTotals,     landItems:     landItemsF,
@@ -12816,7 +12811,7 @@ function ProjectCost({ data, onChange, onSave, saving, archData, incomeData, sal
     archData, settingsData, salesData, vatData,
     paymentSchedule: data.paymentSchedule || {},
   });
-  console.log('monthlyPayments vatSettlements 합계:', Object.values(monthlyPayments.vatSettlements||{}).reduce((s,v)=>s+v,0));
+  
   // ── result를 상위로 전달 (읽기 전용 — Firestore 저장 안 함) ──
   // monthlyPayments를 ref에 저장해서 항상 최신값 유지
   const mpRef = React.useRef(null);
