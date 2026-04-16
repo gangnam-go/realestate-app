@@ -247,15 +247,7 @@ function App() {
                 pubfacConfig:  data?.pubfacConfig  ?? cur.pubfacConfig  ?? {},
               };
               updateSheet('분양율', merged);
-              const needsSave =
-                (data.aptDepMonthlyVat  && !cur.aptDepMonthlyVat)  ||
-                (data.storeDepMonthly   && !cur.storeDepMonthly)   ||
-                (data.aptVatMonthly     && !cur.aptVatMonthly)     ||
-                (data.aptRateMonthly    && !cur.aptRateMonthly)    ||
-                (data.aptCfgSaved       && !cur.aptCfgSaved)       ||
-                JSON.stringify(data.publicConfig) !== JSON.stringify(cur.publicConfig) ||
-                JSON.stringify(data.pubfacConfig) !== JSON.stringify(cur.pubfacConfig);
-              if (needsSave) {
+              if (project) {
                 await setDoc(doc(db, 'projects', project.id, 'sheets', '분양율'), merged);
               }
             }}
