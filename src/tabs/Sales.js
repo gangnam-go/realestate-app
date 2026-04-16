@@ -1050,6 +1050,11 @@ function Sales({ data, incomeData, archData, onChange, onSave, saving, onSalesCh
     });
     const newData = {
       ...data,
+      allocPublic:   data?.allocPublic,   // ← 추가
+      allocOver:     data?.allocOver,     // ← 추가
+      allocUnder:    data?.allocUnder,    // ← 추가
+      allocBaseRate: data?.allocBaseRate, // ← 추가
+      allocScenario: data?.allocScenario, // ← 추가
       vatByMonth,
       salesSumApt:      aptInc.total,
       salesSumPublic:   publicInc.total,
