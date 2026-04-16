@@ -1325,7 +1325,7 @@ function CashFlowCalc({ salesData, monthlyPayments, financeData, onFinanceChange
   });
   // ── 부가세 납부/환급 (분기별, monthlyPayments.vatSettlements) ──
   // 양수 = 납부(현금유출), 음수 = 환급(현금유입)
-  console.log('vatSettlements raw:', JSON.stringify(mp?.vatSettlements));
+  
   const vatSettlements = mp.vatSettlements || {};
   const vatByMonthArr = months.map(ym => -(vatSettlements[ym] || 0)); // 납부=양수, 환급=음수
 
@@ -1430,9 +1430,7 @@ function CashFlowCalc({ salesData, monthlyPayments, financeData, onFinanceChange
     const eqUsed_  = Math.min(eqAvail, remain);
     remain -= eqUsed_;
     // 추가
-    if (months[i] === '30.01') {
-      console.log('30.01 remain:', remain, 'out:', out, 'carryOver전:', carryOver+carryUsed, 'operAvail:', operAvail, 'eqAvail:', eqAvail, 'vat:', vatByMonthArr[i]);
-    }
+    
     // ── 5. 수수료 포함 최종 부족분 → PF 실행 ──
     const willDrawPF = remain > 0;
     const feeThisMonth = (!feePaid && willDrawPF) ? totalFee : 0;
@@ -2144,7 +2142,7 @@ function CashFlowCalc({ salesData, monthlyPayments, financeData, onFinanceChange
       {/* 검증 */}
       {(() => {
         const diff = Math.abs(lhsCheck_ - rhsCheckFin_);
-        console.log('vatNetPay_:', vatNetPay_);
+        
         const ok   = diff < 100;
         return (
           <div style={{ marginTop:'8px', padding:'8px 12px', borderRadius:'6px', fontSize:'11px',
