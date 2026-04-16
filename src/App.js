@@ -125,9 +125,10 @@ function App() {
 
   // ── 분양율 데이터 즉시 Firestore 저장 (보고서탭 alloc 변경 시) ──
   const handleSalesChange = async (data) => {
-    updateSheet('분양율', data);
+    const merged = { ...projectData['분양율'], ...data };
+    updateSheet('분양율', merged);
     if (project) {
-      await setDoc(doc(db, 'projects', project.id, 'sheets', '분양율'), data);
+      await setDoc(doc(db, 'projects', project.id, 'sheets', '분양율'), merged);
     }
   };
 
