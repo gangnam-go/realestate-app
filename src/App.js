@@ -238,11 +238,11 @@ function App() {
               const cur = projectData['분양율'] || {};
               const merged = {
                 ...data,
-                allocPublic:   data?.allocPublic   ?? cur.allocPublic,
+                allocPublic:   data?.allocPublic   ?? cur.allocPublic   ?? { dep: 0, mid: 0, bal: 0 },
                 allocOver:     data?.allocOver     ?? cur.allocOver,
                 allocUnder:    data?.allocUnder    ?? cur.allocUnder,
-                allocBaseRate: data?.allocBaseRate ?? cur.allocBaseRate,
-                allocScenario: data?.allocScenario ?? cur.allocScenario,
+                allocBaseRate: data?.allocBaseRate ?? cur.allocBaseRate ?? 60,
+                allocScenario: data?.allocScenario ?? cur.allocScenario ?? 'over',
               };
               updateSheet('분양율', merged);
               const needsSave =
