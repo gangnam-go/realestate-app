@@ -348,6 +348,7 @@ function SaleAllocation({ salesData, projectName, onSalesChange }) {
   const ymKey = `${(salesData?.ymList||[])[0]||''}_${(salesData?.ymList||[]).length}`;
   const prevYmKey = React.useRef(ymKey);
   React.useEffect(() => {
+    console.log('ymKey changed:', ymKey, 'prev:', prevYmKey.current);
     if (prevYmKey.current !== ymKey) {
       prevYmKey.current = ymKey;
       setAlloc(loadAlloc(salesData));
