@@ -866,7 +866,7 @@ function CashFlow({ salesData, monthlyPayments, financeData, projectName, cashFl
   const costSupplyTotals   = months.map((_,i) => costRows.reduce((s,r) => s+getCostSupply(r.key,months[i]), 0));
   const costVatTotals_     = months.map((_,i) => costRows.reduce((s,r) => s+getCostVat_(r.key,months[i]), 0));
   const finTotals          = months.map(ym => getFinanceCost(ym));
-  const vatSettle = months.map(ym => -(mp.vatSettlements?.[ym] || 0));
+  const vatSettle = months.map(ym => mp.vatSettlements?.[ym] || 0);
   const netCash            = months.map((_,i) => incomeTotals[i] - costTotals[i] - finTotals[i] - vatSettle[i]);
   const cumulative         = months.reduce((acc,_,i) => { acc.push((acc[i-1]||0)+netCash[i]); return acc; }, []);
 
@@ -1125,7 +1125,7 @@ function CashFlow({ salesData, monthlyPayments, financeData, projectName, cashFl
                     {v<0?fmtC(-v):v>0?`(${fmtC(v)})`:''}
                   </td>
                 ))}
-                <td style={{ ...tdSty('#f0e8c0','#7d5a00',true), borderLeft:'2px solid #bbb' }}>{(() => { const t = vatSettle.reduce((s,v)=>s+v,0); return t>0?fmtC(t):t<0?`(${fmtC(-t)})`:''; })()}</td>
+                <td style={{ ...tdSty('#f0e8c0','#7d5a00',true), borderLeft:'2px solid #bbb' }}>{(() => { const t = -vatSettle.reduce((s,v)=>s+v,0); return t>0?fmtC(t):t<0?`(${fmtC(-t)})`:''; })()}</td>
               </tr>
               <tr><td colSpan={months.length+2} style={{ height:'3px', background:'#333', padding:0 }} /></tr>
               <tr>
