@@ -235,9 +235,16 @@ function App() {
             incomeData={projectData['수입'] || {}}
             archData={projectData['건축개요'] || {}}
             onChange={async (data) => {
-              const merged = { ...projectData['분양율'], ...data };
-              updateSheet('분양율', data);
               const cur = projectData['분양율'] || {};
+              const merged = {
+                ...data,
+                allocPublic:   data?.allocPublic   ?? cur.allocPublic,
+                allocOver:     data?.allocOver     ?? cur.allocOver,
+                allocUnder:    data?.allocUnder    ?? cur.allocUnder,
+                allocBaseRate: data?.allocBaseRate ?? cur.allocBaseRate,
+                allocScenario: data?.allocScenario ?? cur.allocScenario,
+              };
+              updateSheet('분양율', merged);
               const needsSave =
                 (data.aptDepMonthlyVat  && !cur.aptDepMonthlyVat)  ||
                 (data.storeDepMonthly   && !cur.storeDepMonthly)   ||
