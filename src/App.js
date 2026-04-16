@@ -243,8 +243,8 @@ function App() {
                 allocUnder:    data?.allocUnder    ?? cur.allocUnder    ?? { res: { dep: 10, mid: 10, bal: 100 }, store: { all: 40 } },
                 allocBaseRate: data?.allocBaseRate ?? cur.allocBaseRate ?? 60,
                 allocScenario: data?.allocScenario ?? cur.allocScenario ?? 'over',
-                publicConfig:  data?.publicConfig  ?? cur.publicConfig,
-                pubfacConfig:  data?.pubfacConfig  ?? cur.pubfacConfig,
+                publicConfig:  data?.publicConfig  ?? cur.publicConfig  ?? {},
+                pubfacConfig:  data?.pubfacConfig  ?? cur.pubfacConfig  ?? {},
               };
               updateSheet('분양율', merged);
               const needsSave =
