@@ -239,8 +239,8 @@ function App() {
               const merged = {
                 ...data,
                 allocPublic:   data?.allocPublic   ?? cur.allocPublic   ?? { dep: 0, mid: 0, bal: 0 },
-                allocOver:     data?.allocOver     ?? cur.allocOver,
-                allocUnder:    data?.allocUnder    ?? cur.allocUnder,
+                allocOver:     data?.allocOver     ?? cur.allocOver     ?? { res: { dep: 30, mid: 30, bal: 100 }, store: { all: 40 } },
+                allocUnder:    data?.allocUnder    ?? cur.allocUnder    ?? { res: { dep: 10, mid: 10, bal: 100 }, store: { all: 40 } },
                 allocBaseRate: data?.allocBaseRate ?? cur.allocBaseRate ?? 60,
                 allocScenario: data?.allocScenario ?? cur.allocScenario ?? 'over',
               };
