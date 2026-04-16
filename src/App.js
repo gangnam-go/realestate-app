@@ -235,6 +235,7 @@ function App() {
             incomeData={projectData['수입'] || {}}
             archData={projectData['건축개요'] || {}}
             onChange={async (data) => {
+              const merged = { ...projectData['분양율'], ...data };
               updateSheet('분양율', data);
               const cur = projectData['분양율'] || {};
               const needsSave =
@@ -244,7 +245,7 @@ function App() {
                 (data.aptRateMonthly    && !cur.aptRateMonthly)    ||
                 (data.aptCfgSaved       && !cur.aptCfgSaved);
               if (needsSave) {
-                await setDoc(doc(db, 'projects', project.id, 'sheets', '분양율'), data);
+                await setDoc(doc(db, 'projects', project.id, 'sheets', '분양율'), merged);
               }
             }}
             onSave={() => saveSheet('분양율')}
