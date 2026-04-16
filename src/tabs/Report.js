@@ -294,19 +294,26 @@ const calcRows = (salesData, alloc, baseRate, scenario, ymList) => {
 // 비율 입력 컴포넌트
 // ─────────────────────────────────────────────
 function AllocRow({ label, save, onChangeSave, color='#1a3a5c' }) {
+  const [localVal, setLocalVal] = React.useState(save);
+  
+  React.useEffect(() => {
+    setLocalVal(save);
+  }, [save]);
+
   return (
     <div style={{ display:'flex', alignItems:'center', gap:'6px', marginBottom:'5px' }}>
       <span style={{ width:'80px', fontSize:'11px', color:'#555' }}>{label}</span>
       <span style={{ fontSize:'11px', color:'#1a5276' }}>상환</span>
-      <input type="number" min="0" max="100" value={save}
-        onChange={e => onChangeSave(Math.min(100, Math.max(0, parseFloat(e.target.value)||0)))}
+      <input type="number" min="0" max="100" value={localVal}
+        onChange={e => setLocalVal(e.target.value)}
+        onBlur={e => onChangeSave(Math.min(100, Math.max(0, parseFloat(e.target.value)||0)))}
         style={{ width:'52px', padding:'3px 6px', border:`1px solid ${color}`,
           borderRadius:'3px', fontSize:'12px', textAlign:'center',
           color, fontWeight:'bold' }} />
       <span style={{ fontSize:'10px', color:'#aaa' }}>%</span>
       <span style={{ fontSize:'11px', color:'#27ae60' }}>운영</span>
       <span style={{ width:'40px', fontSize:'12px', fontWeight:'bold', color:'#27ae60' }}>
-        {100 - save}%
+        {100 - localVal}%
       </span>
     </div>
   );
