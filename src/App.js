@@ -245,6 +245,7 @@ function App() {
                 allocScenario: data?.allocScenario ?? cur.allocScenario ?? 'over',
                 publicConfig:  data?.publicConfig  ?? cur.publicConfig  ?? {},
                 pubfacConfig:  data?.pubfacConfig  ?? cur.pubfacConfig  ?? {},
+                publicBalConfig: data?.publicBalConfig ?? cur.publicBalConfig ?? {},
               };
               updateSheet('분양율', merged);
               if (project) {
