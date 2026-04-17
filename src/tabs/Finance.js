@@ -1379,7 +1379,7 @@ function CashFlowCalc({ salesData, monthlyPayments, financeData, onFinanceChange
   const result = months.map((_,i) => {
     // ── 1. 이번달 지출 ──
     // 수수료는 PF 첫 실행 시점에 1회 — 루프 안에서 결정됨 (아래 step 4에서 채움)
-    const out = totalOut[i]; // 수수료는 step 4 이후 추가
+    const out = totalOutWithFin[i]; // 수수료는 step 4 이후 추가
 
     // ── 2. 이번달 에쿼티 유입 (assignFunding eqMonthly 직접 사용) ──
     const eqAvail = catItems.reduce((s,cat) =>
