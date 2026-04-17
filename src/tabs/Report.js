@@ -2121,63 +2121,85 @@ function IncomeReport({ incomeData, projectName }) {
   );
 
   const handlePrint = () => {
+    // 데이터량에 따라 폰트 크기 자동 조정
+    const totalRows = aptRows.length + publicRows.length + balRows.length
+                    + offiRows.length + storeRows.length + pubfacRows.length;
+    // 행이 많으면 폰트 작게, 적으면 크게 (A4 한 페이지에 맞추기 위함)
+    const fontSize = totalRows > 20 ? '9px' : totalRows > 15 ? '10px' : '11px';
+    const rowPad   = totalRows > 20 ? '3px 5px' : '4px 6px';
+
     const styleId = 'income-print-style';
     if (!document.getElementById(styleId)) {
       const style = document.createElement('style');
       style.id = styleId;
-      style.innerHTML = `@media print{body>*{display:none!important;}#income-print-area{display:block!important;}@page{size:A4 portrait;margin:8mm;}}#income-print-area{display:none;}`;
+      style.innerHTML = `
+        @media print {
+          body > * { display: none !important; }
+          #income-print-area { display: block !important; }
+          @page { size: A4 portrait; margin: 10mm; }
+        }
+        #income-print-area { display: none; }
+      `;
       document.head.appendChild(style);
     }
     const existing = document.getElementById('income-print-area');
     if (existing) existing.remove();
 
-    const thS = 'background:#2c3e50;color:white;padding:5px 6px;font-size:10px;font-weight:bold;border:1px solid #4a6278;text-align:right;white-space:nowrap;';
-    const thSC= thS + 'text-align:center;';
-    const secS2= 'background:#34495e;color:white;font-weight:bold;padding:6px 8px;font-size:11px;border:1px solid #4a6278;';
-    const tdS2 = 'padding:4px 6px;font-size:11px;border:1px solid #ddd;text-align:right;white-space:nowrap;background:white;';
-    const tdSC= tdS2 + 'text-align:center;';
-    const subS2= 'padding:4px 6px;font-size:11px;font-weight:bold;border:1px solid #b0c4d8;text-align:right;white-space:nowrap;background:#eaf1f8;';
-    const subSC=subS2 + 'text-align:center;';
-    const totS2= 'padding:6px 6px;font-size:11px;font-weight:bold;border:1px solid #aaa;text-align:right;white-space:nowrap;background:#1a252f;color:white;';
-    const totSC=totS2 + 'text-align:center;';
+    // ─── 스타일 (절제된 흑백 그레이) ───
+    const baseTd = `padding:${rowPad};font-size:${fontSize};color:#111;border-bottom:1px solid #e8e8e8;white-space:nowrap;`;
+    const thS    = `background:#f0f0f0;color:#111;padding:${rowPad};font-size:${fontSize};font-weight:bold;border-bottom:2px solid #555;border-top:2px solid #555;text-align:right;white-space:nowrap;-webkit-print-color-adjust:exact;print-color-adjust:exact;`;
+    const thSC   = thS + 'text-align:center;';
+    // 장르 헤더: 얕은 그레이 + 진한 검정 글자 굵게
+    const secS   = `background:#fafafa;color:#111;font-weight:bold;padding:5px 8px;font-size:${fontSize};border-top:1.5px solid #888;border-bottom:1px solid #bbb;letter-spacing:0.3px;-webkit-print-color-adjust:exact;print-color-adjust:exact;`;
+    // 일반 데이터 행
+    const tdS    = baseTd + 'text-align:right;background:white;';
+    const tdSC   = baseTd + 'text-align:center;background:white;';
+    // 소계행: 중간 그레이 + 검정 굵게
+    const subS   = `padding:${rowPad};font-size:${fontSize};font-weight:bold;color:#111;background:#f0f0f0;border-top:1px solid #bbb;border-bottom:1px solid #bbb;text-align:right;white-space:nowrap;-webkit-print-color-adjust:exact;print-color-adjust:exact;`;
+    const subSC  = subS + 'text-align:center;';
+    // 합계행: 진한 그레이 + 검정 굵게 (흑백 유지)
+    const totS   = `padding:${rowPad};font-size:${fontSize};font-weight:bold;color:#111;background:#d5d5d5;border-top:2px solid #333;border-bottom:2px solid #333;text-align:right;white-space:nowrap;-webkit-print-color-adjust:exact;print-color-adjust:exact;`;
+    const totSC  = totS + 'text-align:center;';
+
     const fmtA = (v) => v ? Math.round(v).toLocaleString('ko-KR') : '-';
     const fmtP = (v) => v ? v.toFixed(2) : '-';
-    const fmtPct2 = (v) => grandTotal > 0 ? (v / grandTotal * 100).toFixed(1) + '%' : '-';
-    const fmtArea2= (v) => totalContPy > 0 ? (v / totalContPy * 100).toFixed(1) + '%' : '-';
+    const fmtPct2  = (v) => grandTotal  > 0 ? (v / grandTotal  * 100).toFixed(1) + '%' : '-';
+    const fmtArea2 = (v) => totalContPy > 0 ? (v / totalContPy * 100).toFixed(1) + '%' : '-';
 
     const renderRowsHTML = (rows, mode) => rows.map(r => {
       const c = calcRowI(r, mode);
       const units = pnI(r.units);
-      const sup_py= (pnI(r.excl_m2)+pnI(r.wall_m2)+pnI(r.core_m2))*0.3025;
+      const sup_py = (pnI(r.excl_m2) + pnI(r.wall_m2) + pnI(r.core_m2)) * 0.3025;
       const dispSupPy = mode === 'apt' ? sup_py : c.cont_py;
       const rowContPy = c.cont_py * units;
       return `<tr>
-        <td style="${tdSC}">${r.type||'-'}</td>
-        <td style="${tdS2}">${units ? units.toLocaleString() : '-'}</td>
-        <td style="${tdS2}">${fmtP(pnI(r.excl_m2)*0.3025)}</td>
-        <td style="${tdS2}">${fmtP(dispSupPy)}</td>
-        <td style="${tdS2}">${fmtP(c.cont_py)}</td>
-        <td style="${tdS2}">${pnI(r.py_price) ? pnI(r.py_price).toLocaleString() : '-'}</td>
-        <td style="${tdS2}">${fmtA(c.unit_sale)}</td>
-        <td style="${tdS2}">${fmtA(c.total)}<br><span style="font-size:8px;color:#888;">(${fmtPct2(c.total)})</span></td>
+        <td style="${tdSC}">${r.type || '-'}</td>
+        <td style="${tdS}">${units ? units.toLocaleString() : '-'}</td>
+        <td style="${tdS}">${fmtP(pnI(r.excl_m2) * 0.3025)}</td>
+        <td style="${tdS}">${fmtP(dispSupPy)}</td>
+        <td style="${tdS}">${fmtP(c.cont_py)}</td>
+        <td style="${tdS}">${pnI(r.py_price) ? pnI(r.py_price).toLocaleString() : '-'}</td>
+        <td style="${tdS}">${fmtA(c.unit_sale)}</td>
+        <td style="${tdS}">${fmtA(c.total)}<br><span style="font-size:${totalRows>20?'7px':'8px'};color:#555;">(${fmtPct2(c.total)})</span></td>
         <td style="${tdSC}">${fmtArea2(rowContPy)}</td>
       </tr>`;
     }).join('');
 
     const renderSubHTML = (label, total, contPy) =>
-      `<tr><td style="${subSC}" colspan="7">${label} 소계</td>
-        <td style="${subS2}">${fmtA(total)}<br><span style="font-size:8px;color:#666;">(${fmtPct2(total)})</span></td>
+      `<tr>
+        <td style="${subSC}" colspan="7">${label} 소계</td>
+        <td style="${subS}">${fmtA(total)} <span style="font-weight:normal;font-size:${totalRows>20?'7px':'8px'};">(${fmtPct2(total)})</span></td>
         <td style="${subSC}">${fmtArea2(contPy)}</td>
       </tr>`;
 
     const balHTML = balRows.map(r =>
       `<tr>
         <td style="${tdSC}">${r.type}</td>
-        <td style="${tdS2}">${r.units.toLocaleString()}</td>
+        <td style="${tdS}">${r.units.toLocaleString()}</td>
         <td style="${tdSC}" colspan="3">-</td>
-        <td style="${tdS2}">${r.price.toLocaleString()} <span style="font-size:9px;color:#888;">(세대당)</span></td>
-        <td style="${tdS2}">${fmtA(r.price)}</td>
-        <td style="${tdS2}">${fmtA(r.total)}<br><span style="font-size:8px;color:#888;">(${fmtPct2(r.total)})</span></td>
+        <td style="${tdS}">${r.price.toLocaleString()} <span style="font-size:${totalRows>20?'7px':'8px'};color:#555;">(세대당)</span></td>
+        <td style="${tdS}">${fmtA(r.price)}</td>
+        <td style="${tdS}">${fmtA(r.total)} <span style="font-size:${totalRows>20?'7px':'8px'};color:#555;">(${fmtPct2(r.total)})</span></td>
         <td style="${tdSC}">-</td>
       </tr>`
     ).join('');
@@ -2185,111 +2207,77 @@ function IncomeReport({ incomeData, projectName }) {
     const div = document.createElement('div');
     div.id = 'income-print-area';
     div.style.fontFamily = "'Malgun Gothic', sans-serif";
+    div.style.color = '#111';
     div.innerHTML = `
-      <h2 style="font-size:16px;font-weight:bold;text-align:center;margin-bottom:3px;">수입현황</h2>
-      <div style="text-align:center;font-size:10px;color:#555;margin-bottom:16px;">${projectName} | ${new Date().toLocaleDateString('ko-KR')} | 단위: 천원 | 부가가치세 별도</div>
+      <h2 style="font-size:16px;font-weight:bold;text-align:center;margin-bottom:4px;color:#111;">수입현황</h2>
+      <div style="text-align:center;font-size:10px;color:#111;margin-bottom:14px;">
+        ${projectName} | ${new Date().toLocaleDateString('ko-KR')} | 단위: 천원 | 부가가치세 별도
+      </div>
       <table style="width:100%;border-collapse:collapse;">
-        <thead><tr>
-          <th style="${thSC}">타입</th><th style="${thS}">세대</th><th style="${thS}">전용</th><th style="${thS}">공급</th><th style="${thS}">계약</th>
-          <th style="${thS}">평당분양가</th><th style="${thS}">세대당매출</th><th style="${thS}">매출액 (%)</th><th style="${thSC}">계약면적<br>전체계약면적</th>
-        </tr></thead>
-        <tbody>
-          ${aptRows.length>0?`<tr><td style="${secS2}" colspan="9">공동주택</td></tr>${renderRowsHTML(aptRows,'apt')}${renderSubHTML('공동주택',aptTotal,calcContPy(aptRows,'apt'))}`:''}
-          ${publicRows.length>0?`<tr><td style="${secS2}" colspan="9">공공주택</td></tr>${renderRowsHTML(publicRows,'apt')}${renderSubHTML('공공주택',publicTotal,calcContPy(publicRows,'apt'))}`:''}
-          ${balRows.length>0&&balBurden==='분양자 부담'?`<tr><td style="${secS2}" colspan="9">발코니확장</td></tr>${balHTML}${renderSubHTML('발코니확장',balTotal,0)}`:''}
-          ${offiRows.length>0?`<tr><td style="${secS2}" colspan="9">오피스텔</td></tr>${renderRowsHTML(offiRows,'offi')}${renderSubHTML('오피스텔',offiTotal,calcContPy(offiRows,'offi'))}`:''}
-          ${storeRows.length>0?`<tr><td style="${secS2}" colspan="9">근린상가</td></tr>${renderRowsHTML(storeRows,'store')}${renderSubHTML('근린상가',storeTotal,calcContPy(storeRows,'store'))}`:''}
-          ${pubfacRows.length>0?`<tr><td style="${secS2}" colspan="9">공공시설</td></tr>${renderRowsHTML(pubfacRows,'store')}${renderSubHTML('공공시설',pubfacTotal,calcContPy(pubfacRows,'store'))}`:''}
+        <thead>
           <tr>
-            <td style="${totSC}">합 계</td><td style="${totS2}">-</td><td style="${totS2}">${fmtP(sumExclPy)}</td><td style="${totS2}">${fmtP(sumSupPy)}</td><td style="${totS2}">${fmtP(sumContPy)}</td>
-            <td style="${totSC}">-</td><td style="${totSC}">-</td><td style="${totS2}">${fmtA(grandTotal)}<br><span style="font-size:8px;color:#aaa;">(100%)</span></td><td style="${totSC}">100%</td>
+            <th style="${thSC}">타입</th>
+            <th style="${thS}">세대</th>
+            <th style="${thS}">전용</th>
+            <th style="${thS}">공급</th>
+            <th style="${thS}">계약</th>
+            <th style="${thS}">평당분양가</th>
+            <th style="${thS}">세대당매출</th>
+            <th style="${thS}">매출액 (%)</th>
+            <th style="${thSC}">계약면적<br>전체계약면적</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${aptRows.length>0 ? `
+            <tr><td style="${secS}" colspan="9">공동주택</td></tr>
+            ${renderRowsHTML(aptRows,'apt')}
+            ${renderSubHTML('공동주택',aptTotal,calcContPy(aptRows,'apt'))}
+          ` : ''}
+          ${publicRows.length>0 ? `
+            <tr><td style="${secS}" colspan="9">공공주택</td></tr>
+            ${renderRowsHTML(publicRows,'apt')}
+            ${renderSubHTML('공공주택',publicTotal,calcContPy(publicRows,'apt'))}
+          ` : ''}
+          ${balRows.length>0 && balBurden==='분양자 부담' ? `
+            <tr><td style="${secS}" colspan="9">발코니확장${balIncludePublic ? ' (공공주택 포함)' : ''}</td></tr>
+            ${balHTML}
+            ${renderSubHTML('발코니확장',balTotal,0)}
+          ` : ''}
+          ${offiRows.length>0 ? `
+            <tr><td style="${secS}" colspan="9">오피스텔</td></tr>
+            ${renderRowsHTML(offiRows,'offi')}
+            ${renderSubHTML('오피스텔',offiTotal,calcContPy(offiRows,'offi'))}
+          ` : ''}
+          ${storeRows.length>0 ? `
+            <tr><td style="${secS}" colspan="9">근린상가</td></tr>
+            ${renderRowsHTML(storeRows,'store')}
+            ${renderSubHTML('근린상가',storeTotal,calcContPy(storeRows,'store'))}
+          ` : ''}
+          ${pubfacRows.length>0 ? `
+            <tr><td style="${secS}" colspan="9">공공시설</td></tr>
+            ${renderRowsHTML(pubfacRows,'store')}
+            ${renderSubHTML('공공시설',pubfacTotal,calcContPy(pubfacRows,'store'))}
+          ` : ''}
+          <tr>
+            <td style="${totSC}">합 계</td>
+            <td style="${totS}">-</td>
+            <td style="${totS}">${fmtP(sumExclPy)}</td>
+            <td style="${totS}">${fmtP(sumSupPy)}</td>
+            <td style="${totS}">${fmtP(sumContPy)}</td>
+            <td style="${totSC}">-</td>
+            <td style="${totSC}">-</td>
+            <td style="${totS}">${fmtA(grandTotal)} <span style="font-weight:normal;font-size:${totalRows>20?'7px':'8px'};">(100%)</span></td>
+            <td style="${totSC}">100%</td>
           </tr>
         </tbody>
       </table>
-      <div style="margin-top:8px;font-size:9px;color:#888;">* 매출액·평당분양가·세대당매출 단위: 천원 / 발코니확장 단가는 세대당 금액</div>`;
+      <div style="margin-top:10px;font-size:9px;color:#111;border-top:1px solid #ddd;padding-top:6px;">
+        * 매출액·평당분양가·세대당매출 단위: 천원 / 발코니확장 단가는 세대당 금액
+      </div>
+    `;
     document.body.appendChild(div);
     window.print();
   };
-
-  return (
-    <div>
-      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'16px' }}>
-        <h3 style={{ margin:0, color:'#2c3e50' }}>수입현황</h3>
-        <button onClick={handlePrint}
-          style={{ padding:'7px 16px', backgroundColor:'#2980b9', color:'white', border:'none', borderRadius:'6px', cursor:'pointer', fontSize:'13px', fontWeight:'bold' }}>
-          🖨 인쇄
-        </button>
-      </div>
-      <div style={{ overflowX:'auto' }}>
-        <table style={{ borderCollapse:'collapse', width:'100%', fontSize:'12px' }}>
-          <thead>
-            <tr>
-              <th style={thS('center')}>타입</th><th style={thS('right')}>세대</th><th style={thS('right')}>전용</th>
-              <th style={thS('right')}>공급</th><th style={thS('right')}>계약</th><th style={thS('right')}>평당분양가</th>
-              <th style={thS('right')}>세대당매출</th><th style={thS('right')}>매출액 (%)</th>
-              <th style={thS('center')}>계약면적<br/>전체계약면적</th>
-            </tr>
-          </thead>
-          <tbody>
-            {aptRows.length > 0 && <>
-              <tr><td style={secS()} colSpan={10}>공동주택</td></tr>
-              {renderRows(aptRows, 'apt')}
-              {renderSubtotal('공동주택', aptTotal, calcContPy(aptRows, 'apt'))}
-            </>}
-            {publicRows.length > 0 && <>
-              <tr><td style={secS()} colSpan={10}>공공주택</td></tr>
-              {renderRows(publicRows, 'apt')}
-              {renderSubtotal('공공주택', publicTotal, calcContPy(publicRows, 'apt'))}
-            </>}
-            {balRows.length > 0 && balBurden === '분양자 부담' && <>
-              <tr><td style={secS()} colSpan={10}>발코니확장{balIncludePublic ? ' (공공주택 포함)' : ''}</td></tr>
-              {balRows.map((r, i) => (
-                <tr key={i}>
-                  <td style={tdS('center')}>{r.type}</td>
-                  <td style={tdS('right')}>{r.units.toLocaleString()}</td>
-                  <td style={tdS('center')} colSpan={3}>-</td>
-                  <td style={tdS('right')}>{r.price.toLocaleString()}<span style={{fontSize:'10px',color:'#888',marginLeft:'4px'}}>(세대당)</span></td>
-                  <td style={tdS('right')}>{fmtAmt(r.price)}</td>
-                  <td style={tdS('right')}>{fmtAmt(r.total)}<br/><span style={{fontSize:'10px',color:'#888'}}>({fmtPct(r.total)})</span></td>
-                  <td style={tdS('center')}>-</td>
-                </tr>
-              ))}
-              {renderSubtotal('발코니확장', balTotal, 0)}
-            </>}
-            {offiRows.length > 0 && <>
-              <tr><td style={secS()} colSpan={10}>오피스텔</td></tr>
-              {renderRows(offiRows, 'offi')}
-              {renderSubtotal('오피스텔', offiTotal, calcContPy(offiRows, 'offi'))}
-            </>}
-            {storeRows.length > 0 && <>
-              <tr><td style={secS()} colSpan={10}>근린상가</td></tr>
-              {renderRows(storeRows, 'store')}
-              {renderSubtotal('근린상가', storeTotal, calcContPy(storeRows, 'store'))}
-            </>}
-            {pubfacRows.length > 0 && <>
-              <tr><td style={secS()} colSpan={10}>공공시설</td></tr>
-              {renderRows(pubfacRows, 'store')}
-              {renderSubtotal('공공시설', pubfacTotal, calcContPy(pubfacRows, 'store'))}
-            </>}
-            <tr>
-              <td style={totS('center')}>합 계</td>
-              <td style={totS('right')}>-</td>
-              <td style={totS('right')}>{fmtPy(sumExclPy)}</td>
-              <td style={totS('right')}>{fmtPy(sumSupPy)}</td>
-              <td style={totS('right')}>{fmtPy(sumContPy)}</td>
-              <td style={totS('center')}>-</td>
-              <td style={totS('center')}>-</td>
-              <td style={totS('right')}>{fmtAmt(grandTotal)}<br/><span style={{fontSize:'10px',color:'#aaa'}}>(100%)</span></td>
-              <td style={totS('center')}>100%</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-      <div style={{ fontSize:'11px', color:'#aaa', marginTop:'8px' }}>
-        * 매출액·평당분양가·세대당매출 단위: 천원 / 발코니확장 단가는 세대당 금액
-      </div>
-    </div>
-  );
 }
 
 // ─────────────────────────────────────────────
