@@ -1427,12 +1427,12 @@ function CashFlowCalc({ salesData, monthlyPayments, financeData, onFinanceChange
     // ── 3. PF 실행 여부 판단을 위한 사전 과부족 계산 ──
     // (수수료 제외한 상태에서 먼저 계산 → PF 실행 예정이면 수수료 포함해서 재계산)
     const preShortage = carryOver + eqIn + operIn
-                      - totalOut[i] - vatSettle - eqRepayThisMonth;
+                      - totalOut[i] - midInt_r - vatSettle - eqRepayThisMonth;
     const willDrawPF = preShortage < 0;
     const feeThisMonth = (!feePaid && willDrawPF) ? totalFee : 0;
 
     // ── 4. 최종 과부족 계산 ──
-    const totalCost = totalOut[i] + vatSettle + eqRepayThisMonth + feeThisMonth;
+    const totalCost = totalOut[i] + midInt_r + vatSettle + eqRepayThisMonth + feeThisMonth;
     const totalIn   = carryOver + eqIn + operIn;
     const netAmount = totalIn - totalCost;   // 양수=잉여, 음수=부족
 
