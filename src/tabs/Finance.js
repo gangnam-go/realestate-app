@@ -1375,6 +1375,10 @@ function CashFlowCalc({ salesData, monthlyPayments, financeData, onFinanceChange
   // 상환용계좌 잔액 (누적)
   let saveAcctBal = 0;
 
+  // 현금유출에는 수수료+중도금무이자 포함 (PF이자/원금은 상환용계좌에서 차감)
+  const finFeeOnlyByMonth = months.map((_,i)=>finFeeByMonth[i]);
+  const totalOutWithFin = totalOut.map((v,i)=>v+finFeeOnlyByMonth[i]+finMidByMonth[i]+vatByMonthArr[i]);
+  
   console.log('months 길이:', months.length, '첫달:', months[0]);
   const result = months.map((_,i) => {
     // ── 1. 이번달 지출 ──
