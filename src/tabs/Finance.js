@@ -1375,6 +1375,7 @@ function CashFlowCalc({ salesData, monthlyPayments, financeData, onFinanceChange
   // 상환용계좌 잔액 (누적)
   let saveAcctBal = 0;
 
+  console.log('months 길이:', months.length, '첫달:', months[0]);
   const result = months.map((_,i) => {
     // ── 1. 이번달 지출 ──
     // 수수료는 PF 첫 실행 시점에 1회 — 루프 안에서 결정됨 (아래 step 4에서 채움)
