@@ -2278,6 +2278,86 @@ function IncomeReport({ incomeData, projectName }) {
     document.body.appendChild(div);
     window.print();
   };
+
+  return (
+    <div>
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'16px' }}>
+        <h3 style={{ margin:0, color:'#2c3e50' }}>수입현황</h3>
+        <button onClick={handlePrint}
+          style={{ padding:'7px 16px', backgroundColor:'#2980b9', color:'white', border:'none', borderRadius:'6px', cursor:'pointer', fontSize:'13px', fontWeight:'bold' }}>
+          🖨 인쇄
+        </button>
+      </div>
+      <div style={{ overflowX:'auto' }}>
+        <table style={{ borderCollapse:'collapse', width:'100%', fontSize:'12px' }}>
+          <thead>
+            <tr>
+              <th style={thS('center')}>타입</th><th style={thS('right')}>세대</th><th style={thS('right')}>전용</th>
+              <th style={thS('right')}>공급</th><th style={thS('right')}>계약</th><th style={thS('right')}>평당분양가</th>
+              <th style={thS('right')}>세대당매출</th><th style={thS('right')}>매출액 (%)</th>
+              <th style={thS('center')}>계약면적<br/>전체계약면적</th>
+            </tr>
+          </thead>
+          <tbody>
+            {aptRows.length > 0 && <>
+              <tr><td style={secS()} colSpan={10}>공동주택</td></tr>
+              {renderRows(aptRows, 'apt')}
+              {renderSubtotal('공동주택', aptTotal, calcContPy(aptRows, 'apt'))}
+            </>}
+            {publicRows.length > 0 && <>
+              <tr><td style={secS()} colSpan={10}>공공주택</td></tr>
+              {renderRows(publicRows, 'apt')}
+              {renderSubtotal('공공주택', publicTotal, calcContPy(publicRows, 'apt'))}
+            </>}
+            {balRows.length > 0 && balBurden === '분양자 부담' && <>
+              <tr><td style={secS()} colSpan={10}>발코니확장{balIncludePublic ? ' (공공주택 포함)' : ''}</td></tr>
+              {balRows.map((r, i) => (
+                <tr key={i}>
+                  <td style={tdS('center')}>{r.type}</td>
+                  <td style={tdS('right')}>{r.units.toLocaleString()}</td>
+                  <td style={tdS('center')} colSpan={3}>-</td>
+                  <td style={tdS('right')}>{r.price.toLocaleString()}<span style={{fontSize:'10px',color:'#888',marginLeft:'4px'}}>(세대당)</span></td>
+                  <td style={tdS('right')}>{fmtAmt(r.price)}</td>
+                  <td style={tdS('right')}>{fmtAmt(r.total)}<br/><span style={{fontSize:'10px',color:'#888'}}>({fmtPct(r.total)})</span></td>
+                  <td style={tdS('center')}>-</td>
+                </tr>
+              ))}
+              {renderSubtotal('발코니확장', balTotal, 0)}
+            </>}
+            {offiRows.length > 0 && <>
+              <tr><td style={secS()} colSpan={10}>오피스텔</td></tr>
+              {renderRows(offiRows, 'offi')}
+              {renderSubtotal('오피스텔', offiTotal, calcContPy(offiRows, 'offi'))}
+            </>}
+            {storeRows.length > 0 && <>
+              <tr><td style={secS()} colSpan={10}>근린상가</td></tr>
+              {renderRows(storeRows, 'store')}
+              {renderSubtotal('근린상가', storeTotal, calcContPy(storeRows, 'store'))}
+            </>}
+            {pubfacRows.length > 0 && <>
+              <tr><td style={secS()} colSpan={10}>공공시설</td></tr>
+              {renderRows(pubfacRows, 'store')}
+              {renderSubtotal('공공시설', pubfacTotal, calcContPy(pubfacRows, 'store'))}
+            </>}
+            <tr>
+              <td style={totS('center')}>합 계</td>
+              <td style={totS('right')}>-</td>
+              <td style={totS('right')}>{fmtPy(sumExclPy)}</td>
+              <td style={totS('right')}>{fmtPy(sumSupPy)}</td>
+              <td style={totS('right')}>{fmtPy(sumContPy)}</td>
+              <td style={totS('center')}>-</td>
+              <td style={totS('center')}>-</td>
+              <td style={totS('right')}>{fmtAmt(grandTotal)}<br/><span style={{fontSize:'10px',color:'#aaa'}}>(100%)</span></td>
+              <td style={totS('center')}>100%</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div style={{ fontSize:'11px', color:'#aaa', marginTop:'8px' }}>
+        * 매출액·평당분양가·세대당매출 단위: 천원 / 발코니확장 단가는 세대당 금액
+      </div>
+    </div>
+  );
 }
 
 // ─────────────────────────────────────────────
