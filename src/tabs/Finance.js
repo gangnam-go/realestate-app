@@ -1479,7 +1479,7 @@ function CashFlowCalc({ salesData, monthlyPayments, financeData, onFinanceChange
     saveAcctBal  += saveIn; // 당월 유입 누적
 
     // 7-1. PF 이자 먼저 차감 (중도금무이자는 운영비계좌에서 지급)
-    const intTotal = intJ_est + intM_est + intS_est; // PF이자만
+    const intTotal = intJ + intM + intS; // PF이자만
     saveAcctBal = Math.max(0, saveAcctBal - intTotal);
 
     // 7-2. 원금 상환 (이자 차감 후 잔액 기준)
@@ -1510,7 +1510,7 @@ function CashFlowCalc({ salesData, monthlyPayments, financeData, onFinanceChange
     saveAcctBal -= totalRepay; // 원금 상환 후 잔액 차감
 
     return {
-      out, carryUsed, operUsed: operUsed_, eqUsed: eqUsed_, vatSettle,
+      out: totalOut[i], carryUsed, operUsed: operUsed_, eqUsed: eqUsed_, vatSettle,
       totalInt, intJ, intM, intS, midInt: midInt_r,
       drawJunior, drawMez, drawSenior, drawRounded,
       repayS, repayM, repayJ, totalRepay,
