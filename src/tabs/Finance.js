@@ -1414,6 +1414,9 @@ function CashFlowCalc({ salesData, monthlyPayments, financeData, onFinanceChange
     // 총 지출 = 사업비 + 중도금무이자 + 부가세납부 - 부가세환급
     // (PF이자/원금은 상환용계좌에서 차감)
     const operAvail = operByMonth[i];
+    const carryUsed = Math.min(carryOver, out - operAvail - eqAvail > 0 ? out - operAvail - eqAvail : 0);
+    const operUsed_ = operAvail;
+    const eqUsed_ = eqAvail;
     let remain = out - carryOver - operAvail - eqAvail;
     remain = Math.max(0, remain);
     carryOver = Math.max(0, carryOver + operAvail + eqAvail - out);
