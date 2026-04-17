@@ -1431,8 +1431,8 @@ function CashFlowCalc({ salesData, monthlyPayments, financeData, onFinanceChange
     const eqUsed_  = Math.min(eqAvail, remain);
     remain -= eqUsed_;
     // 추가
-    if (i === 0) {
-      console.log('months 샘플:', months.slice(0, 5), months[months.length-1]);
+    if (months[i] === '2030.01') {
+      console.log('2030.01 remain:', remain, 'out:', out, 'carryOver:', carryOver+carryUsed, 'operAvail:', operAvail, 'eqAvail:', eqAvail, 'vat:', vatByMonthArr[i]);
     }
     // ── 5. 수수료 포함 최종 부족분 → PF 실행 ──
     const willDrawPF = remain > 0;
