@@ -1615,6 +1615,11 @@ function CashFlowCalc({ salesData, monthlyPayments, financeData, onFinanceChange
       s + cat.items.reduce((ss,item) => ss + (item.eqMonthly?.[i] || 0), 0)
     , 0)
   );
+
+  // 현금유출에는 수수료+중도금무이자 포함 (PF이자/원금은 상환용계좌에서 차감)
+  const finFeeOnlyByMonth = months.map((_,i)=>finFeeByMonth[i]);
+  const totalOutWithFin = totalOut.map((v,i)=>v+finFeeOnlyByMonth[i]+finMidByMonth[i]+vatByMonthArr[i]);
+
   // 에쿼티 총 투입액 (마지막 사업기간 월에 상환)
   const eqTotal = eqByMonthArr.reduce((s,v)=>s+v, 0);
   const eqRepayByMonth = months.map((_,i) => i === months.length-1 ? eqTotal : 0);
