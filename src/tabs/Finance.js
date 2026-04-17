@@ -1413,23 +1413,10 @@ function CashFlowCalc({ salesData, monthlyPayments, financeData, onFinanceChange
     const vatIn     = vatSettle < 0 ? -vatSettle : 0; // 환급 → 당월 유입
     // 총 지출 = 사업비 + 중도금무이자 + 부가세납부 - 부가세환급
     // (PF이자/원금은 상환용계좌에서 차감)
-    let remain = out + (vatByMonthArr[i] > 0 ? vatByMonthArr[i] : 0);
-
-    // 이월 잔액 우선 사용
-    const carryUsed = Math.min(carryOver, remain);
-    remain    -= carryUsed;
-    carryOver -= carryUsed;
-
-    // 분양불(운영비계좌) 충당 — 잉여분은 carryOver로 이월
-    const operAvail  = operByMonth[i];
-    const operUsed_  = Math.min(operAvail, remain);
-    remain -= operUsed_;
-    const operSurplus = operAvail - operUsed_;
-    carryOver += operSurplus;
-
-    // 에쿼티 충당 — eqMonthly 직접 사용
-    const eqUsed_  = Math.min(eqAvail, remain);
-    remain -= eqUsed_;
+    const operAvail = operByMonth[i];
+    let remain = out - carryOver - operAvail - eqAvail;
+    remain = Math.max(0, remain);
+    carryOver = Math.max(0, carryOver + operAvail + eqAvail - out);
     
     // 추가
     if (months[i] === '2030.01') {
