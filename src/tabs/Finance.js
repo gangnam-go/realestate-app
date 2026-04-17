@@ -1430,8 +1430,7 @@ function CashFlowCalc({ salesData, monthlyPayments, financeData, onFinanceChange
     // 에쿼티 충당 — eqMonthly 직접 사용
     const eqUsed_  = Math.min(eqAvail, remain);
     remain -= eqUsed_;
-    const eqSurplus = eqAvail - eqUsed_;  // ← 추가
-    carryOver += eqSurplus;               // ← 추가
+    
     // 추가
     if (months[i] === '2030.01') {
       console.log('2030.01 remain:', remain, 'out:', out, 'carryOver:', carryOver+carryUsed, 'operAvail:', operAvail, 'eqAvail:', eqAvail, 'vat:', vatByMonthArr[i]);
