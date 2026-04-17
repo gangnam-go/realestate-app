@@ -1641,13 +1641,10 @@ function CashFlowCalc({ salesData, monthlyPayments, financeData, onFinanceChange
     // 부가세는 totalOutWithFin에 이미 포함
   );
 
-  // 이월잔액 누적
-  let carry = 0;
-  const carryByMonth = months.map((_,i) => {
-    const prev = carry;
-    carry = prev + surplusByMonth[i] + (result[i].drawRounded||0);
-    return prev;
-  });
+  // 이월잔액 (전월말 운영비계좌 잔액 = 전월 result.carryOver)
+  const carryByMonth = months.map((_,i) =>
+    i === 0 ? 0 : (result[i-1].carryOver || 0)
+  );
 
   // ── 검증 우변: carryByMonth 이후 계산 (에쿼티 상환 반영) ──
   const lastCarry_  = carryByMonth[carryByMonth.length-1] + surplusByMonth[surplusByMonth.length-1];
