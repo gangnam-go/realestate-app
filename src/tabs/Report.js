@@ -131,6 +131,89 @@ const RS = {
   printSize:   '8px',
 };
 
+// ─────────────────────────────────────────────
+// 인쇄용 공통 스타일 (흑백 그레이 톤 - 보고서 통일)
+// ─────────────────────────────────────────────
+const RP = {
+  fontFamily: "'Malgun Gothic', sans-serif",
+  textColor:  '#111',   // 본문 검정
+  subColor:   '#555',   // 보조 텍스트(퍼센트 등)
+  hdrBg:      '#f0f0f0', // 테이블 헤더 배경
+  secBg:      '#fafafa', // 장르(섹션) 헤더 배경
+  rowBg:      'white',   // 일반 행 배경
+  subBg:      '#f0f0f0', // 소계행 배경
+  totBg:      '#d5d5d5', // 합계행 배경
+  specBg:     '#f5f5f5', // 착공/준공월 강조 배경
+};
+
+/**
+ * 인쇄 스타일 빌더 - 폰트 크기/패딩에 따라 스타일 문자열 생성
+ * @param {string} fontSize - 폰트 크기 (예: '8px', '10px')
+ * @param {string} rowPad - 행 패딩 (예: '3px 5px')
+ */
+const RPStyles = (fontSize = '10px', rowPad = '4px 6px') => {
+  const bg = '-webkit-print-color-adjust:exact;print-color-adjust:exact;';
+  const base = `padding:${rowPad};font-size:${fontSize};color:${RP.textColor};white-space:nowrap;`;
+  return {
+    // 테이블 헤더
+    th:   `background:${RP.hdrBg};${base}font-weight:bold;border-bottom:2px solid #555;border-top:2px solid #555;text-align:right;${bg}`,
+    thC:  `background:${RP.hdrBg};${base}font-weight:bold;border-bottom:2px solid #555;border-top:2px solid #555;text-align:center;${bg}`,
+    thL:  `background:${RP.hdrBg};${base}font-weight:bold;border-bottom:2px solid #555;border-top:2px solid #555;text-align:left;${bg}`,
+    // 장르(섹션) 헤더 - colspan 전체 행
+    sec:  `background:${RP.secBg};color:${RP.textColor};font-weight:bold;padding:5px 8px;font-size:${fontSize};border-top:1.5px solid #888;border-bottom:1px solid #bbb;${bg}`,
+    // 일반 데이터 행
+    td:   `${base}background:${RP.rowBg};border-bottom:1px solid #e8e8e8;text-align:right;`,
+    tdC:  `${base}background:${RP.rowBg};border-bottom:1px solid #e8e8e8;text-align:center;`,
+    tdL:  `${base}background:${RP.rowBg};border-bottom:1px solid #e8e8e8;text-align:left;`,
+    // 착공/준공월 특수 셀 (옅은 회색 배경)
+    tdSpec: `${base}background:${RP.specBg};border-bottom:1px solid #e8e8e8;text-align:right;${bg}`,
+    // 소계행
+    sub:  `${base}background:${RP.subBg};font-weight:bold;border-top:1px solid #bbb;border-bottom:1px solid #bbb;text-align:right;${bg}`,
+    subC: `${base}background:${RP.subBg};font-weight:bold;border-top:1px solid #bbb;border-bottom:1px solid #bbb;text-align:center;${bg}`,
+    subL: `${base}background:${RP.subBg};font-weight:bold;border-top:1px solid #bbb;border-bottom:1px solid #bbb;text-align:left;${bg}`,
+    // 합계행 (최종)
+    tot:  `${base}background:${RP.totBg};font-weight:bold;border-top:2px solid #333;border-bottom:2px solid #333;text-align:right;${bg}`,
+    totC: `${base}background:${RP.totBg};font-weight:bold;border-top:2px solid #333;border-bottom:2px solid #333;text-align:center;${bg}`,
+    totL: `${base}background:${RP.totBg};font-weight:bold;border-top:2px solid #333;border-bottom:2px solid #333;text-align:left;${bg}`,
+  };
+};
+
+/**
+ * 인쇄용 DOM 생성 및 인쇄 실행 (통일된 방식)
+ * @param {string} id - print area id (예: 'alloc-print-area')
+ * @param {string} html - 인쇄할 HTML 문자열
+ * @param {string} pageSize - 'A4 portrait' 또는 'A3 landscape'
+ */
+const printReport = (id, html, pageSize = 'A3 landscape') => {
+  // 1. print CSS 주입 (한 번만)
+  const styleId = `${id}-style`;
+  if (!document.getElementById(styleId)) {
+    const style = document.createElement('style');
+    style.id = styleId;
+    style.innerHTML = `
+      @media print {
+        body > * { display: none !important; }
+        #${id} { display: block !important; }
+        @page { size: ${pageSize}; margin: 8mm; }
+      }
+      #${id} { display: none; }
+    `;
+    document.head.appendChild(style);
+  }
+  // 2. 기존 영역 제거
+  const existing = document.getElementById(id);
+  if (existing) existing.remove();
+  // 3. 새 영역 생성
+  const div = document.createElement('div');
+  div.id = id;
+  div.style.fontFamily = RP.fontFamily;
+  div.style.color = RP.textColor;
+  div.innerHTML = html;
+  document.body.appendChild(div);
+  // 4. 인쇄
+  setTimeout(() => window.print(), 200);
+};
+
 const colBorderR = (ym) => {
   const m = parseInt(ym.split('.')[1]) || 0;
   return (m === 6 || m === 12) ? '2px solid #888' : undefined;
@@ -439,131 +522,132 @@ function SaleAllocation({ salesData, projectName, onSalesChange }) {
   // ── 인쇄 ──
   const handlePrint = () => {
     const junMonth = salesData?.junMonth || 0;
-    const colBorderStyle = (idx) => {
+
+    // 월 수에 따라 폰트 자동 조정
+    const n = activeCols.length;
+    const fontSize = n > 48 ? '7px' : n > 36 ? '8px' : '9px';
+    const rowPad   = n > 48 ? '2px 3px' : '3px 4px';
+    const S = RPStyles(fontSize, rowPad);
+
+    const colBorderR = (idx) => {
       const ym = activeCols[idx]?.ym || '';
       const month = parseInt(ym.split('.')[1]) || 0;
-      if (month === 6 || month === 12) return 'border-right:2px solid #888;';
-      return '';
+      return (month === 6 || month === 12) ? 'border-right:1px solid #bbb;' : '';
     };
     const isJunMonth = (idx) => activeCols[idx] && (idx + 1) === junMonth;
 
-    const thS  = 'background:#222;color:white;padding:3px 4px;font-size:8px;border:1px solid #444;text-align:right;white-space:nowrap;';
-    const thSL = thS + 'text-align:left;';
-    const thJun = thS + 'outline:2px solid #f39c12;outline-offset:-2px;color:#f39c12;font-weight:bold;';
-    const tdS  = (bg, color='#111', bold=false, borderR='') =>
-      `background:${bg};padding:3px 4px;font-size:8px;border-bottom:1px solid #e8e8e8;text-align:right;color:${color};${bold?'font-weight:bold;':''}${borderR}`;
-    const tdTotal = (color='#111') =>
-      `background:#f0f0f0;padding:3px 4px;font-size:8px;border-bottom:1px solid #e8e8e8;text-align:right;color:${color};font-weight:bold;border-left:2px solid #bbb;`;
-
-    const win = window.open('', '_blank', 'width=1400,height=900');
-    win.document.write(`<html><head><title>분양금배분_${projectName}</title>
-    <style>
-      *{margin:0;padding:0;box-sizing:border-box;}
-      body{font-family:'Malgun Gothic',sans-serif;font-size:8px;color:#111;padding:6mm;}
-      h2{font-size:12px;font-weight:bold;text-align:center;margin-bottom:2px;}
-      .sub{text-align:center;font-size:8px;color:#555;margin-bottom:8px;}
-      table{border-collapse:collapse;width:100%;}
-      th,td{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
-      @media print{@page{margin:6mm;size:A3 landscape;}th,td{-webkit-print-color-adjust:exact;print-color-adjust:exact;}}
-    </style></head><body>`);
-    win.document.write(`
-      <h2>분양금 배분 현황 (상환용 / 운영비 계좌)</h2>
-      <div class="sub">
-        ${projectName} | ${new Date().toLocaleDateString('ko-KR')} | 단위: 천원 | 기준분양율: ${baseRate}%
-        | ${scenario==='over'?'초과 기준 고정':'미만 기준 고정'}
-        ${junMonth > 0 ? `| 준공월: ${activeCols[junMonth-1]?.ym||''}` : ''}
-      </div>
-      <table>
-        <thead>
-          <tr>
-            <th style="${thSL}min-width:70px;">항목</th>
-            <th style="${thS}min-width:30px;border-right:2px solid #888;">구분</th>
-            ${activeCols.map((r, idx) => {
-              const isJun = isJunMonth(idx);
-              const bR = colBorderStyle(idx);
-              return `<th style="${isJun ? thJun+bR : thS+bR}min-width:46px;">${isJun ? `★${r.ym}` : r.ym}</th>`;
-            }).join('')}
-            <th style="${thS}min-width:56px;color:#ddd;background:#333;border-left:2px solid #bbb;">합계</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${ROW_DEFS.map(row => {
-            if (row.key === '__divider__') return `<tr><td colspan="${activeCols.length+3}" style="height:3px;background:#ddd;"></td></tr>`;
-            const isGrandRow = ['totalSave','totalOper','total'].includes(row.key);
-            const rowSum = sum(row.key);
-            if (!isGrandRow && rowSum === 0) return '';
-            return `<tr>
-              <td style="${tdS(row.bg, row.color, row.bold)}text-align:left;">${row.label||''}</td>
-              <td style="${tdS(row.bg, row.sub==='상환용'?'#1a5276':row.sub==='운영비'?'#1a6a3a':'#555', row.bold)}border-right:2px solid #ccc;">${row.sub||''}</td>
-              ${activeCols.map((r, idx) => {
-                const bR = colBorderStyle(idx);
-                const isJun = isJunMonth(idx);
-                const cellBg = isJun ? (r.isOver ? '#fff8e1' : '#fffde7') : (r.isOver ? row.bg : '#fffde7');
-                return `<td style="${tdS(cellBg, row.color, row.bold, bR)}">${fmtN(r[row.key])}</td>`;
-              }).join('')}
-              <td style="${tdTotal(row.color)}">${fmtN(rowSum)}</td>
-            </tr>`;
+    // 본 테이블 헤더
+    const tableHeader = `
+      <thead>
+        <tr>
+          <th style="${S.thL}min-width:68px;">항목</th>
+          <th style="${S.thC}min-width:28px;border-right:1px solid #999;">구분</th>
+          ${activeCols.map((r, idx) => {
+            const jun = isJunMonth(idx);
+            const extra = colBorderR(idx);
+            return `<th style="${S.th}min-width:40px;${jun?'font-weight:bold;':''}${extra}">${jun ? `★${r.ym}` : r.ym}</th>`;
           }).join('')}
-        </tbody>
-      </table>
-      <div style="margin-top:8px;">
-        <table style="width:auto;border-collapse:collapse;font-size:8px;">
+          <th style="${S.th}min-width:52px;border-left:2px solid #555;">합계</th>
+        </tr>
+      </thead>`;
+
+    // 본 테이블 바디
+    const tableBody = ROW_DEFS.map(row => {
+      if (row.key === '__divider__')
+        return `<tr><td colspan="${n+3}" style="height:3px;background:#ccc;padding:0;"></td></tr>`;
+      const isGrandRow = ['totalSave','totalOper','total'].includes(row.key);
+      const rowSum = sum(row.key);
+      if (!isGrandRow && rowSum === 0) return '';
+      const rowStyle = isGrandRow ? S.sub : S.td;
+      const rowStyleL = isGrandRow ? S.subL : S.tdL;
+      const rowStyleC = isGrandRow ? S.subC : S.tdC;
+      const totStyle = isGrandRow ? S.sub : S.td.replace('background:white','background:#f0f0f0').replace('border-bottom:1px solid #e8e8e8','border-bottom:1px solid #e8e8e8;border-left:2px solid #555');
+      return `<tr>
+        <td style="${rowStyleL}">${row.label||''}</td>
+        <td style="${rowStyleC}border-right:1px solid #ccc;color:${RP.subColor};">${row.sub||''}</td>
+        ${activeCols.map((r, idx) => {
+          const br = colBorderR(idx);
+          return `<td style="${rowStyle}${br}">${fmtN(r[row.key])}</td>`;
+        }).join('')}
+        <td style="${totStyle}border-left:2px solid #555;font-weight:bold;">${fmtN(rowSum)}</td>
+      </tr>`;
+    }).join('');
+
+    // 배분비율 요약 테이블
+    const pctTable = `
+      <div style="margin-top:12px;">
+        <div style="font-size:${fontSize};font-weight:bold;margin-bottom:4px;">■ 배분비율 설정</div>
+        <table style="border-collapse:collapse;font-size:${fontSize};">
           <thead>
             <tr>
-              <th style="background:#1a3a5c;color:white;padding:3px 8px;text-align:center;" colspan="2">구분</th>
-              <th style="background:#1a3a5c;color:#aed6f1;padding:3px 8px;text-align:center;">계약금</th>
-              <th style="background:#1a3a5c;color:#aed6f1;padding:3px 8px;text-align:center;">중도금</th>
-              <th style="background:#1a3a5c;color:#aed6f1;padding:3px 8px;text-align:center;">잔금</th>
-              <th style="background:#1a3a5c;color:#aed6f1;padding:3px 8px;text-align:center;">상가</th>
-              ${hasPublic ? '<th style="background:#15623c;color:#a9dfbf;padding:3px 8px;text-align:center;">기부체납계약금</th><th style="background:#15623c;color:#a9dfbf;padding:3px 8px;text-align:center;">기부체납중도금</th><th style="background:#15623c;color:#a9dfbf;padding:3px 8px;text-align:center;">기부체납잔금</th>' : ''}
+              <th style="${S.thL}" colspan="2">구분</th>
+              <th style="${S.thC}min-width:50px;">계약금</th>
+              <th style="${S.thC}min-width:50px;">중도금</th>
+              <th style="${S.thC}min-width:50px;">잔금</th>
+              <th style="${S.thC}min-width:50px;">상가</th>
+              ${hasPublic ? '<th style="'+S.thC+'min-width:60px;">기부체납<br>계약금</th><th style="'+S.thC+'min-width:60px;">기부체납<br>중도금</th><th style="'+S.thC+'min-width:60px;">기부체납<br>잔금</th>' : ''}
             </tr>
           </thead>
           <tbody>
             <tr>
-              <td style="background:#e8f0f8;color:#1a3a5c;font-weight:bold;padding:3px 8px;text-align:center;" rowspan="2">초과<br/>(≥${baseRate}%)</td>
-              <td style="background:#e8f0f8;color:#1a5276;padding:3px 8px;">상환용</td>
-              <td style="background:#e8f0f8;color:#1a5276;padding:3px 8px;text-align:center;">${alloc.over.res.dep}%</td>
-              <td style="background:#e8f0f8;color:#1a5276;padding:3px 8px;text-align:center;">${alloc.over.res.mid}%</td>
-              <td style="background:#e8f0f8;color:#1a5276;padding:3px 8px;text-align:center;">${alloc.over.res.bal}%</td>
-              <td style="background:#e8f0f8;color:#1a5276;padding:3px 8px;text-align:center;">${alloc.over.store.all}%</td>
-              ${hasPublic ? `<td style="background:#e0f5ec;color:#15623c;padding:3px 8px;text-align:center;">${alloc.public.dep}%</td><td style="background:#e0f5ec;color:#15623c;padding:3px 8px;text-align:center;">${alloc.public.mid}%</td><td style="background:#e0f5ec;color:#15623c;padding:3px 8px;text-align:center;">${alloc.public.bal}%</td>` : ''}
+              <td style="${S.subL}" rowspan="2">초과<br>(≥${baseRate}%)</td>
+              <td style="${S.tdC}">상환용</td>
+              <td style="${S.tdC}">${alloc.over.res.dep}%</td>
+              <td style="${S.tdC}">${alloc.over.res.mid}%</td>
+              <td style="${S.tdC}">${alloc.over.res.bal}%</td>
+              <td style="${S.tdC}">${alloc.over.store.all}%</td>
+              ${hasPublic ? `<td style="${S.tdC}">${alloc.public.dep}%</td><td style="${S.tdC}">${alloc.public.mid}%</td><td style="${S.tdC}">${alloc.public.bal}%</td>` : ''}
             </tr>
             <tr>
-              <td style="background:#e8f5ec;color:#1a6a3a;padding:3px 8px;">운영비</td>
-              <td style="background:#e8f5ec;color:#1a6a3a;padding:3px 8px;text-align:center;">${100-alloc.over.res.dep}%</td>
-              <td style="background:#e8f5ec;color:#1a6a3a;padding:3px 8px;text-align:center;">${100-alloc.over.res.mid}%</td>
-              <td style="background:#e8f5ec;color:#1a6a3a;padding:3px 8px;text-align:center;">${100-alloc.over.res.bal}%</td>
-              <td style="background:#e8f5ec;color:#1a6a3a;padding:3px 8px;text-align:center;">${100-alloc.over.store.all}%</td>
-              ${hasPublic ? `<td style="background:#d5f5e3;color:#1a6a3a;padding:3px 8px;text-align:center;">${100-alloc.public.dep}%</td><td style="background:#d5f5e3;color:#1a6a3a;padding:3px 8px;text-align:center;">${100-alloc.public.mid}%</td><td style="background:#d5f5e3;color:#1a6a3a;padding:3px 8px;text-align:center;">${100-alloc.public.bal}%</td>` : ''}
+              <td style="${S.tdC}">운영비</td>
+              <td style="${S.tdC}">${100-alloc.over.res.dep}%</td>
+              <td style="${S.tdC}">${100-alloc.over.res.mid}%</td>
+              <td style="${S.tdC}">${100-alloc.over.res.bal}%</td>
+              <td style="${S.tdC}">${100-alloc.over.store.all}%</td>
+              ${hasPublic ? `<td style="${S.tdC}">${100-alloc.public.dep}%</td><td style="${S.tdC}">${100-alloc.public.mid}%</td><td style="${S.tdC}">${100-alloc.public.bal}%</td>` : ''}
             </tr>
             <tr>
-              <td style="background:#fff8e1;color:#7d5a00;font-weight:bold;padding:3px 8px;text-align:center;" rowspan="2">미만<br/>(&lt;${baseRate}%)</td>
-              <td style="background:#fff8e1;color:#1a5276;padding:3px 8px;">상환용</td>
-              <td style="background:#fff8e1;color:#1a5276;padding:3px 8px;text-align:center;">${alloc.under.res.dep}%</td>
-              <td style="background:#fff8e1;color:#1a5276;padding:3px 8px;text-align:center;">${alloc.under.res.mid}%</td>
-              <td style="background:#fff8e1;color:#1a5276;padding:3px 8px;text-align:center;">${alloc.under.res.bal}%</td>
-              <td style="background:#fff8e1;color:#1a5276;padding:3px 8px;text-align:center;">${alloc.under.store.all}%</td>
-              ${hasPublic ? `<td style="background:#e0f5ec;color:#15623c;padding:3px 8px;text-align:center;">${alloc.public.dep}%</td><td style="background:#e0f5ec;color:#15623c;padding:3px 8px;text-align:center;">${alloc.public.mid}%</td><td style="background:#e0f5ec;color:#15623c;padding:3px 8px;text-align:center;">${alloc.public.bal}%</td>` : ''}
+              <td style="${S.subL}" rowspan="2">미만<br>(&lt;${baseRate}%)</td>
+              <td style="${S.tdC}">상환용</td>
+              <td style="${S.tdC}">${alloc.under.res.dep}%</td>
+              <td style="${S.tdC}">${alloc.under.res.mid}%</td>
+              <td style="${S.tdC}">${alloc.under.res.bal}%</td>
+              <td style="${S.tdC}">${alloc.under.store.all}%</td>
+              ${hasPublic ? `<td style="${S.tdC}">${alloc.public.dep}%</td><td style="${S.tdC}">${alloc.public.mid}%</td><td style="${S.tdC}">${alloc.public.bal}%</td>` : ''}
             </tr>
             <tr>
-              <td style="background:#fffde7;color:#1a6a3a;padding:3px 8px;">운영비</td>
-              <td style="background:#fffde7;color:#1a6a3a;padding:3px 8px;text-align:center;">${100-alloc.under.res.dep}%</td>
-              <td style="background:#fffde7;color:#1a6a3a;padding:3px 8px;text-align:center;">${100-alloc.under.res.mid}%</td>
-              <td style="background:#fffde7;color:#1a6a3a;padding:3px 8px;text-align:center;">${100-alloc.under.res.bal}%</td>
-              <td style="background:#fffde7;color:#1a6a3a;padding:3px 8px;text-align:center;">${100-alloc.under.store.all}%</td>
-              ${hasPublic ? `<td style="background:#d5f5e3;color:#1a6a3a;padding:3px 8px;text-align:center;">${100-alloc.public.dep}%</td><td style="background:#d5f5e3;color:#1a6a3a;padding:3px 8px;text-align:center;">${100-alloc.public.mid}%</td><td style="background:#d5f5e3;color:#1a6a3a;padding:3px 8px;text-align:center;">${100-alloc.public.bal}%</td>` : ''}
+              <td style="${S.tdC}">운영비</td>
+              <td style="${S.tdC}">${100-alloc.under.res.dep}%</td>
+              <td style="${S.tdC}">${100-alloc.under.res.mid}%</td>
+              <td style="${S.tdC}">${100-alloc.under.res.bal}%</td>
+              <td style="${S.tdC}">${100-alloc.under.store.all}%</td>
+              ${hasPublic ? `<td style="${S.tdC}">${100-alloc.public.dep}%</td><td style="${S.tdC}">${100-alloc.public.mid}%</td><td style="${S.tdC}">${100-alloc.public.bal}%</td>` : ''}
             </tr>
           </tbody>
         </table>
-        <div style="margin-top:4px;font-size:7px;color:#888;">
-          ※ 주거용 = 공동주택 + 발코니확장 + 오피스텔 | 기부체납 = 공공주택 + 공공발코니 + 공공시설 (초과/미만 무관)
-          | 노란 배경: 기준분양율(${baseRate}%) 미만 ${junMonth > 0 ? `| ★ 준공월` : ''}
-        </div>
+      </div>`;
+
+    const html = `
+      <h2 style="font-size:14px;font-weight:bold;text-align:center;margin-bottom:4px;color:${RP.textColor};">
+        분양금 배분 현황 (상환용 / 운영비 계좌)
+      </h2>
+      <div style="text-align:center;font-size:10px;color:${RP.textColor};margin-bottom:12px;">
+        ${projectName} | ${new Date().toLocaleDateString('ko-KR')} | 단위: 천원 | 기준분양율: ${baseRate}%
+        | ${scenario==='over'?'초과 기준':'미만 기준'} 고정
+        ${junMonth > 0 ? `| ★ 준공월: ${activeCols[junMonth-1]?.ym||''}` : ''}
       </div>
-    `);
-    win.document.write('</body></html>');
-    win.document.close();
-    setTimeout(() => win.print(), 400);
+      <table style="width:100%;border-collapse:collapse;">
+        ${tableHeader}
+        <tbody>${tableBody}</tbody>
+      </table>
+      ${pctTable}
+      <div style="margin-top:10px;font-size:9px;color:${RP.textColor};border-top:1px solid #ddd;padding-top:6px;">
+        * 주거용 = 공동주택 + 발코니확장 + 오피스텔 | 기부체납 = 공공주택 + 공공발코니 + 공공시설
+        ${junMonth > 0 ? '| ★ 준공월' : ''}
+      </div>
+    `;
+
+    printReport('alloc-print-area', html, 'A3 landscape');
   };
 
   const junMonth = salesData?.junMonth || 0;
