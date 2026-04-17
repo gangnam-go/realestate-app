@@ -1365,6 +1365,15 @@ function CashFlowCalc({ salesData, monthlyPayments, financeData, onFinanceChange
   let feePaid = false; // 수수료 지급 여부 (PF 첫 실행 시 1회)
   const feeByMonth_pre = Array(months.length).fill(0); // result 루프에서 채움
 
+  // ★★★ 여기에 추가 ★★★
+  // ── 월별 에쿼티 투입액 (eqMonthly 합산) ──
+  const eqByMonthArr = months.map((_,i) =>
+    catItems.reduce((s,cat) =>
+      s + cat.items.reduce((ss,item) => ss + (item.eqMonthly?.[i] || 0), 0)
+    , 0)
+  );
+  // ★★★ 여기까지 추가 ★★★
+
   // ── 핵심 계산: 과부족 기반 PF 실행 ──
   // 원칙: 운영비계좌 잔액 관점
   //   지출 = 사업비(금융비 포함) + 부가세(±) + 에쿼티반환(마지막월)
@@ -1373,7 +1382,6 @@ function CashFlowCalc({ salesData, monthlyPayments, financeData, onFinanceChange
   //   부족(<0) → PF 실행 ceil(|부족|, 억단위), 후→중→선
   //   잉여(≥0) → 운영비계좌에 이월
   //   ※ PF 이자/원금은 상환용계좌에서 별도 처리
-
   // 트랜치 잔액
   let balJunior = 0, balMez = 0, balSenior = 0;
   // 운영비계좌 잔액 (= 이월잔액)
@@ -1618,14 +1626,6 @@ function CashFlowCalc({ salesData, monthlyPayments, financeData, onFinanceChange
   const lhsCheck_    = salesTotal_ - costTotal_ - vatNetPay_;
   const lastResult_  = result[result.length-1] || {};
   const rhsCheck_    = 0; // carryByMonth 선언 후 아래에서 재계산
-
-  // ── 과부족 및 PF 계산 (에쿼티+분양불 - 전체지출) ──
-  // eqMonthly는 ProjectCost.js assignFunding에서 이미 계산됨 — 재계산 없이 그대로 사용
-  const eqByMonthArr = months.map((_,i) =>
-    catItems.reduce((s,cat) =>
-      s + cat.items.reduce((ss,item) => ss + (item.eqMonthly?.[i] || 0), 0)
-    , 0)
-  );
 
   // 현금유출에는 수수료+중도금무이자 포함 (PF이자/원금은 상환용계좌에서 차감)
   const finFeeOnlyByMonth = months.map((_,i)=>finFeeByMonth[i]);
