@@ -1417,22 +1417,23 @@ function CashFlowCalc({ salesData, monthlyPayments, financeData, onFinanceChange
     const vatIn     = vatSettle < 0 ? -vatSettle : 0; // 환급 → 당월 유입
     // 총 지출 = 사업비 + 중도금무이자 + 부가세납부 - 부가세환급
     // (PF이자/원금은 상환용계좌에서 차감)
-    const operAvail = operByMonth[i];
-    const carryUsed = Math.min(carryOver, out - operAvail - eqAvail > 0 ? out - operAvail - eqAvail : 0);
-    const operUsed_ = operAvail;
-    const eqUsed_ = eqAvail;
-    let remain = out - carryOver - operAvail - eqAvail;
-    remain = Math.max(0, remain);
-    carryOver = Math.max(0, carryOver + operAvail + eqAvail - out);
-    
-    // 추가
-    if (months[i] === '2030.01') {
-      console.log('2030.01 remain:', remain, 'out:', out, 'carryOver:', carryOver+carryUsed, 'operAvail:', operAvail, 'eqAvail:', eqAvail, 'vat:', vatByMonthArr[i]);
-    }
-    // ── 5. 수수료 포함 최종 부족분 → PF 실행 ──
-    const willDrawPF = remain > 0;
-    const feeThisMonth = (!feePaid && willDrawPF) ? totalFee : 0;
-    const shortage2 = Math.max(0, remain + feeThisMonth);
+    const vatSettle = vatByMonthArr[i] || 0;
+    const vatOut    = vatSettle > 0 ? vatSettle : 0;
+    const vatIn     = vatSettle < 0 ? -vatSettle : 0;
+    let remain = out + (vatByMonthArr[i] > 0 ? vatByMonthArr[i] : 0);
+    // 이월 잔액 우선 사용
+    const carryUsed = Math.min(carryOver, remain);
+    remain    -= carryUsed;
+    carryOver -= carryUsed;
+    // 분양불(운영비계좌) 충당 — 잉여분은 carryOver로 이월
+    const operAvail  = operByMonth[i];
+    const operUsed_  = Math.min(operAvail, remain);
+    remain -= operUsed_;
+    const operSurplus = operAvail - operUsed_;
+    carryOver += operSurplus;
+    // 에쿼티 충당 — eqMonthly 직접 사용
+    const eqUsed_  = Math.min(eqAvail, remain);
+    remain -= eqUsed_;
     // 이자는 전달 잔액 기준 추정값 사용
     const intJ = intJ_est; const intM = intM_est; const intS = intS_est;
     const midInt_r = midInt_est;
