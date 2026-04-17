@@ -1646,9 +1646,9 @@ function CashFlowCalc({ salesData, monthlyPayments, financeData, onFinanceChange
     i === 0 ? 0 : (result[i-1].carryOver || 0)
   );
 
-  // ── 검증 우변: carryByMonth 이후 계산 (에쿼티 상환 반영) ──
-  const lastCarry_  = carryByMonth[carryByMonth.length-1] + surplusByMonth[surplusByMonth.length-1];
-  const lastSave_   = lastResult_?.saveAcctBal || 0;
+  // ── 검증 우변: 마지막 월 운영비계좌 잔액 + 상환용계좌 잔액 ──
+  const lastCarry_   = lastResult_?.carryOver  || 0;
+  const lastSave_    = lastResult_?.saveAcctBal || 0;
   const rhsCheckFin_ = lastCarry_ + lastSave_;
 
   // 대섹션 헤더
