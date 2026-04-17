@@ -1413,9 +1413,6 @@ function CashFlowCalc({ salesData, monthlyPayments, financeData, onFinanceChange
     const vatIn     = vatSettle < 0 ? -vatSettle : 0; // 환급 → 당월 유입
     // 총 지출 = 사업비 + 중도금무이자 + 부가세납부 - 부가세환급
     // (PF이자/원금은 상환용계좌에서 차감)
-    const vatSettle = vatByMonthArr[i] || 0;
-    const vatOut    = vatSettle > 0 ? vatSettle : 0;
-    const vatIn     = vatSettle < 0 ? -vatSettle : 0;
     let remain = out + (vatByMonthArr[i] > 0 ? vatByMonthArr[i] : 0);
     // 이월 잔액 우선 사용
     const carryUsed = Math.min(carryOver, remain);
