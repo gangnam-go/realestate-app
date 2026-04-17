@@ -1427,6 +1427,10 @@ function CashFlowCalc({ salesData, monthlyPayments, financeData, onFinanceChange
     // 에쿼티 충당 — eqMonthly 직접 사용
     const eqUsed_  = Math.min(eqAvail, remain);
     remain -= eqUsed_;
+    // ── 5. 수수료 포함 최종 부족분 → PF 실행 ──
+    const willDrawPF = remain > 0;
+    const feeThisMonth = (!feePaid && willDrawPF) ? totalFee : 0;
+    const shortage2 = Math.max(0, remain + feeThisMonth);
     // 이자는 전달 잔액 기준 추정값 사용
     const intJ = intJ_est; const intM = intM_est; const intS = intS_est;
     const midInt_r = midInt_est;
