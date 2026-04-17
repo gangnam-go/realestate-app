@@ -1365,31 +1365,36 @@ function CashFlowCalc({ salesData, monthlyPayments, financeData, onFinanceChange
   let feePaid = false; // 수수료 지급 여부 (PF 첫 실행 시 1회)
   const feeByMonth_pre = Array(months.length).fill(0); // result 루프에서 채움
 
-  // ── 핵심 계산: 매월 항목별 에쿼티 한도 추적 후 부족분 PF 실행 ──
-  // (eqMonthly는 assignFunding에서 이미 계산됨)
+  // ── 핵심 계산: 과부족 기반 PF 실행 ──
+  // 원칙: 운영비계좌 잔액 관점
+  //   지출 = 사업비(금융비 포함) + 부가세(±) + 에쿼티반환(마지막월)
+  //   유입 = 이월잔액 + 에쿼티 + 분양불(운영비분)
+  //   과부족 = 유입 - 지출
+  //   부족(<0) → PF 실행 ceil(|부족|, 억단위), 후→중→선
+  //   잉여(≥0) → 운영비계좌에 이월
+  //   ※ PF 이자/원금은 상환용계좌에서 별도 처리
 
   // 트랜치 잔액
   let balJunior = 0, balMez = 0, balSenior = 0;
-  // 이월 잔액 (PF 올림 차액 + 분양불 잉여)
+  // 운영비계좌 잔액 (= 이월잔액)
   let carryOver = 0;
-  // 상환용계좌 잔액 (누적)
+  // 상환용계좌 잔액
   let saveAcctBal = 0;
-  
-  console.log('months 길이:', months.length, '첫달:', months[0]);
+
+  // 마지막 월 에쿼티 반환액 (총 에쿼티 투입액)
+  const eqTotalRepay = catItems.reduce((s,cat) =>
+    s + cat.items.reduce((ss,item) =>
+      ss + (item.eqMonthly||[]).reduce((sss,v)=>sss+(v||0),0), 0), 0);
+
   const result = months.map((_,i) => {
-    // ── 1. 이번달 지출 ──
-    // 수수료는 PF 첫 실행 시점에 1회 — 루프 안에서 결정됨 (아래 step 4에서 채움)
-    const out = totalOut[i]; // 수수료는 step 4 이후 추가
+    const isLastMonth = (i === months.length - 1);
+    const eqRepayThisMonth = isLastMonth ? eqTotalRepay : 0;
 
-    // ── 2. 이번달 에쿼티 유입 (assignFunding eqMonthly 직접 사용) ──
-    const eqAvail = catItems.reduce((s,cat) =>
-      s + cat.items.reduce((ss,item) => ss + (item.eqMonthly?.[i]||0), 0), 0);
-
-    // ── 3. 이번달 이자 추정 (전달 PF 잔액 기준) ──
-    const intJ_est = Math.round(balJunior * junior.rate/100/12);
-    const intM_est = Math.round(balMez    * mez.rate/100/12);
-    const intS_est = Math.round(balSenior * senior.rate/100/12);
-    const midInt_est = (() => {
+    // ── 1. 이자 계산 (전월 잔액 기준, 상환용계좌에서 차감) ──
+    const intJ = Math.round(balJunior * junior.rate/100/12);
+    const intM = Math.round(balMez    * mez.rate/100/12);
+    const intS = Math.round(balSenior * senior.rate/100/12);
+    const midInt_r = (() => {
       const mr=pnv(fc_pre.midRate)/100/12;
       const yl_=salesData?.ymList||[];
       const am_=salesData?.aptMidMonthly||[], om_=salesData?.offiMidMonthly||[], sm_=salesData?.storeMidMonthly||[];
@@ -1404,64 +1409,69 @@ function CashFlowCalc({ salesData, monthlyPayments, financeData, onFinanceChange
       });
       return Math.round(Math.max(0,acc-rep)*mr);
     })();
-    const intEst = intJ_est + intM_est + intS_est + midInt_est;
+    const totalInt = intJ + intM + intS;
 
-    // ── 4. 실제 충당 순서: 이월잔액 → 분양불(운영비계좌) → 에쿼티 → PF ──
-    // 부가세: 납부(+) = 지출 추가, 환급(-) = 당월 유입으로 즉시 차감
-    const vatSettle = vatByMonthArr[i] || 0;
-    const vatOut    = vatSettle > 0 ? vatSettle : 0;  // 납부 → 지출
-    const vatIn     = vatSettle < 0 ? -vatSettle : 0; // 환급 → 당월 유입
-    // 총 지출 = 사업비 + 중도금무이자 + 부가세납부 - 부가세환급
-    // (PF이자/원금은 상환용계좌에서 차감)
-    let remain = out + (vatByMonthArr[i] > 0 ? vatByMonthArr[i] : 0);
-    // 이월 잔액 우선 사용
-    const carryUsed = Math.min(carryOver, remain);
-    remain    -= carryUsed;
-    carryOver -= carryUsed;
-    // 분양불(운영비계좌) 충당 — 잉여분은 carryOver로 이월
-    const operAvail  = operByMonth[i];
-    const operUsed_  = Math.min(operAvail, remain);
-    remain -= operUsed_;
-    const operSurplus = operAvail - operUsed_;
-    carryOver += operSurplus;
-    // 에쿼티 충당 — eqMonthly 직접 사용
-    const eqUsed_  = Math.min(eqAvail, remain);
-    remain -= eqUsed_;
-    // ── 5. 수수료 포함 최종 부족분 → PF 실행 ──
-    const willDrawPF = remain > 0;
+    // ── 2. 이번달 유입/지출 ──
+    const vatSettle = vatByMonthArr[i] || 0;   // +: 납부, -: 환급
+    const eqIn      = eqByMonthArr[i]  || 0;   // 에쿼티 (eqMonthly 그대로)
+    const operIn    = operByMonth[i]   || 0;   // 분양불 운영비분
+
+    // ── 3. PF 실행 여부 판단을 위한 사전 과부족 계산 ──
+    // (수수료 제외한 상태에서 먼저 계산 → PF 실행 예정이면 수수료 포함해서 재계산)
+    const preShortage = carryOver + eqIn + operIn
+                      - totalOut[i] - vatSettle - eqRepayThisMonth;
+    const willDrawPF = preShortage < 0;
     const feeThisMonth = (!feePaid && willDrawPF) ? totalFee : 0;
-    const shortage2 = Math.max(0, remain + feeThisMonth);
-    // 이자는 전달 잔액 기준 추정값 사용
-    const intJ = intJ_est; const intM = intM_est; const intS = intS_est;
-    const midInt_r = midInt_est;
-    const totalInt = intJ + intM + intS; // PF이자만 (중도금무이자는 별도)
-    let drawJunior=0, drawMez=0, drawSenior=0;
-    let r2 = shortage2;
-    drawJunior = Math.min(Math.max(0,junior.amt-balJunior), r2); r2 -= drawJunior;
-    drawMez    = Math.min(Math.max(0,mez.amt-balMez),       r2); r2 -= drawMez;
-    drawSenior = Math.min(Math.max(0,senior.amt-balSenior), r2);
-    const totalDraw   = drawJunior+drawMez+drawSenior;
-    const drawRounded = totalDraw > 0 ? ceilUnit(totalDraw) : 0;
 
-    // 올림 차액은 선순위에 배분 후 이월
-    if (drawRounded > totalDraw) {
-      const extra = drawRounded - totalDraw;
-      // 선순위 한도 내에서 추가 실행
-      const extraS = Math.min(extra, Math.max(0, senior.amt - balSenior - drawSenior));
-      drawSenior += extraS;
-      const extraM = Math.min(extra - extraS, Math.max(0, mez.amt - balMez - drawMez));
-      drawMez    += extraM;
-      const extraJ = Math.min(extra - extraS - extraM, Math.max(0, junior.amt - balJunior - drawJunior));
-      drawJunior += extraJ;
-      // 이월 잔액 = PF 실행액 - 실제 필요액
-      carryOver += drawRounded - shortage2;
+    // ── 4. 최종 과부족 계산 ──
+    const totalCost = totalOut[i] + vatSettle + eqRepayThisMonth + feeThisMonth;
+    const totalIn   = carryOver + eqIn + operIn;
+    const netAmount = totalIn - totalCost;   // 양수=잉여, 음수=부족
+
+    // ── 5. PF 실행 ──
+    let drawJunior = 0, drawMez = 0, drawSenior = 0, drawRounded = 0;
+    let newCarry = 0;
+
+    if (netAmount < 0) {
+      // 부족 → PF 실행 (억단위 올림)
+      const shortage = -netAmount;
+      const drawTarget = ceilUnit(shortage);
+
+      // 후→중→선 순서로 한도내 배분
+      let r = drawTarget;
+      drawJunior = Math.min(Math.max(0, junior.amt - balJunior), r); r -= drawJunior;
+      drawMez    = Math.min(Math.max(0, mez.amt    - balMez),    r); r -= drawMez;
+      drawSenior = Math.min(Math.max(0, senior.amt - balSenior), r);
+
+      drawRounded = drawJunior + drawMez + drawSenior;
+      // 이월잔액 = 실제 실행액 - 부족분 (올림차액)
+      // 한도초과로 부족분을 못 채우면 음수가 될 수 있으나, 최소 0으로 보정
+      newCarry = Math.max(0, drawRounded - shortage);
+    } else {
+      // 잉여 → 운영비계좌에 이월
+      newCarry = netAmount;
     }
-    balJunior += drawJunior; balMez += drawMez; balSenior += drawSenior;
-    // 수수료 플래그 업데이트
-    if (!feePaid && (drawJunior+drawMez+drawSenior) > 0) {
+
+    // 잔액 업데이트
+    balJunior += drawJunior;
+    balMez    += drawMez;
+    balSenior += drawSenior;
+
+    // 수수료 플래그
+    if (!feePaid && drawRounded > 0) {
       feePaid = true;
       feeByMonth_pre[i] = feeThisMonth;
     }
+
+    // ── 6. UI 표시용 충당 내역 분해 ──
+    // 표시 순서: 이월잔액 → 분양불 → 에쿼티 → PF
+    let rem = totalCost;
+    const carryUsed = Math.min(Math.max(0,carryOver), rem); rem -= carryUsed;
+    const operUsed_ = Math.min(Math.max(0,operIn),    rem); rem -= operUsed_;
+    const eqUsed_   = Math.min(Math.max(0,eqIn),      rem); rem -= eqUsed_;
+
+    // 이월잔액 업데이트 (다음 달로)
+    carryOver = newCarry;
 
     // ── 7. 상환용계좌: 원금 + 이자 차감 ──
     // 은행이 상환용계좌에서 이자 + 원금을 자동 인출
