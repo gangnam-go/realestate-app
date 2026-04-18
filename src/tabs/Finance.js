@@ -352,9 +352,9 @@ function FundingModal({ onClose, projectName, ...props }) {
         <tfoot>
           <tr style="page-break-before:always;">
             <td style="padding:9px 8px;background:#222;color:white;font-weight:bold;font-size:12px;text-align:left;">총 합계</td>
-            <td style="padding:9px 8px;background:#222;color:white;font-weight:bold;font-size:12px;text-align:right;">${formatNumber(Math.round(grand.amt))}</td>
-            <td style="padding:9px 8px;background:#222;color:#aed6f1;font-weight:bold;font-size:12px;text-align:right;">${fmtN2(grand.pf)}</td>
-            <td style="padding:9px 8px;background:#222;color:#a9dfbf;font-weight:bold;font-size:12px;text-align:right;">${fmtN2(grand.sale)}</td>
+            <td style="padding:9px 8px;background:#222;color:white;font-weight:bold;font-size:12px;text-align:right;">${formatNumber(Math.round(grand.amt + finTotalAmt_))}</td>
+            <td style="padding:9px 8px;background:#222;color:#aed6f1;font-weight:bold;font-size:12px;text-align:right;">${fmtN2(grand.pf + feeAmt_)}</td>
+            <td style="padding:9px 8px;background:#222;color:#a9dfbf;font-weight:bold;font-size:12px;text-align:right;">${fmtN2(grand.sale + intAmt_)}</td>
             <td style="padding:9px 8px;background:#222;color:#d7bde2;font-weight:bold;font-size:12px;text-align:right;">${fmtN2(grand.equity)}</td>
             <td style="padding:9px 8px;background:#222;color:#f5cba7;font-weight:bold;font-size:12px;text-align:right;">${fmtN2(grand.retain)}</td>
           </tr>
