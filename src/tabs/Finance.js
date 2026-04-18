@@ -318,6 +318,36 @@ function FundingModal({ onClose, projectName, ...props }) {
                 <td style="padding:5px 8px;border-bottom:1px solid #e8e8e8;text-align:right;color:#7d3c00;">${fmtN2(it.retain)}</td>
               </tr>`).join('')}
           `).join('')}
+
+          ${finTotalAmt_ > 0 ? `
+            <tr style="background:#e8e8e8;">
+              <td style="padding:6px 8px;font-weight:bold;border-top:1.5px solid #999;border-bottom:1px solid #ddd;text-align:left;">(8) 금융비</td>
+              <td style="padding:6px 8px;font-weight:bold;border-top:1.5px solid #999;border-bottom:1px solid #ddd;text-align:right;">${formatNumber(finTotalAmt_)}</td>
+              <td style="padding:6px 8px;font-weight:bold;border-top:1.5px solid #999;border-bottom:1px solid #ddd;text-align:right;">${fmtN2(feeAmt_)}</td>
+              <td style="padding:6px 8px;font-weight:bold;border-top:1.5px solid #999;border-bottom:1px solid #ddd;text-align:right;">${fmtN2(intAmt_)}</td>
+              <td style="padding:6px 8px;font-weight:bold;border-top:1.5px solid #999;border-bottom:1px solid #ddd;text-align:right;">—</td>
+              <td style="padding:6px 8px;font-weight:bold;border-top:1.5px solid #999;border-bottom:1px solid #ddd;text-align:right;">—</td>
+            </tr>
+            ${[
+              { label:'주관사수수료',     amt:mgmtAmt_,      pf:mgmtAmt_,      sale:0 },
+              { label:'선순위 이자',       amt:seniorIntAmt_, pf:0,             sale:seniorIntAmt_ },
+              { label:'중순위 이자',       amt:mezIntAmt_,    pf:0,             sale:mezIntAmt_ },
+              { label:'후순위 이자',       amt:juniorIntAmt_, pf:0,             sale:juniorIntAmt_ },
+              { label:'선순위 취급수수료', amt:seniorFeeAmt_, pf:seniorFeeAmt_, sale:0 },
+              { label:'중순위 취급수수료', amt:mezFeeAmt_,    pf:mezFeeAmt_,    sale:0 },
+              { label:'후순위 취급수수료', amt:juniorFeeAmt_, pf:juniorFeeAmt_, sale:0 },
+              { label:'중도금 무이자',     amt:midIntAmt_,    pf:0,             sale:midIntAmt_ },
+            ].filter(r=>r.amt>0).map((r,i) => `
+              <tr style="background:${i%2===0?'white':'#fafafa'};">
+                <td style="padding:5px 8px;padding-left:20px;border-bottom:1px solid #e8e8e8;text-align:left;color:#333;">${r.label}</td>
+                <td style="padding:5px 8px;border-bottom:1px solid #e8e8e8;text-align:right;">${formatNumber(r.amt)}</td>
+                <td style="padding:5px 8px;border-bottom:1px solid #e8e8e8;text-align:right;color:#1a5276;">${fmtN2(r.pf)}</td>
+                <td style="padding:5px 8px;border-bottom:1px solid #e8e8e8;text-align:right;color:#1a6a3a;">${fmtN2(r.sale)}</td>
+                <td style="padding:5px 8px;border-bottom:1px solid #e8e8e8;text-align:right;">—</td>
+                <td style="padding:5px 8px;border-bottom:1px solid #e8e8e8;text-align:right;">—</td>
+              </tr>
+            `).join('')}
+          ` : ''}
         </tbody>
         <tfoot>
           <tr style="page-break-before:always;">
