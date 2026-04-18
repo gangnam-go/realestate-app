@@ -280,6 +280,9 @@ function FundingModal({ onClose, projectName, ...props }) {
     const rowPad   = totalRows > 35 ? '3px 6px' : '4px 8px';
 
     const fmtN2 = (v) => v > 0 ? formatNumber(Math.round(v)) : '—';
+    // 전체 총합계 (금융비 포함) — % 기준
+    const grandTotal = Math.round(grand.amt) + finTotalAmt_;
+    const fmtPct = (v) => grandTotal > 0 ? `(${(v/grandTotal*100).toFixed(1)}%)` : '';
     const bg = '-webkit-print-color-adjust:exact;print-color-adjust:exact;';
 
     // ─── 흑백 그레이 톤 통일 스타일 ───
@@ -320,7 +323,7 @@ function FundingModal({ onClose, projectName, ...props }) {
           ${catSums.map(cat => `
             <tr>
               <td style="${catSL}">${cat.cat}</td>
-              <td style="${catS}">${formatNumber(Math.round(cat.sum.amt))}</td>
+              <td style="${catS}">${formatNumber(Math.round(cat.sum.amt))} <span style="font-weight:normal;font-size:${totalRows>35?'7px':'8px'};color:#555;">${fmtPct(cat.sum.amt)}</span></td>
               <td style="${catS}">${fmtN2(cat.sum.pf)}</td>
               <td style="${catS}">${fmtN2(cat.sum.sale)}</td>
               <td style="${catS}">${fmtN2(cat.sum.equity)}</td>
@@ -331,7 +334,7 @@ function FundingModal({ onClose, projectName, ...props }) {
                 <td style="${tdSL}">
                   ${it.name}${it.vat > 0 ? ` <span style="font-size:${totalRows>35?'7px':'8px'};color:#555;">(공급 ${formatNumber(it.supply)} + VAT ${formatNumber(it.vat)})</span>` : ''}
                 </td>
-                <td style="${tdS}">${formatNumber(it.amt)}</td>
+                <td style="${tdS}">${formatNumber(it.amt)} <span style="font-size:${totalRows>35?'7px':'8px'};color:#555;">${fmtPct(it.amt)}</span></td>
                 <td style="${tdS}">${fmtN2(it.pf)}</td>
                 <td style="${tdS}">${fmtN2(it.sale)}</td>
                 <td style="${tdS}">${fmtN2(it.equity)}</td>
@@ -342,7 +345,7 @@ function FundingModal({ onClose, projectName, ...props }) {
           ${finTotalAmt_ > 0 ? `
             <tr>
               <td style="${catSL}">(8) 금융비</td>
-              <td style="${catS}">${formatNumber(finTotalAmt_)}</td>
+              <td style="${catS}">${formatNumber(finTotalAmt_)} <span style="font-weight:normal;font-size:${totalRows>35?'7px':'8px'};color:#555;">${fmtPct(finTotalAmt_)}</span></td>
               <td style="${catS}">${fmtN2(feeAmt_)}</td>
               <td style="${catS}">${fmtN2(intAmt_)}</td>
               <td style="${catS}">—</td>
@@ -360,7 +363,7 @@ function FundingModal({ onClose, projectName, ...props }) {
             ].filter(r=>r.amt>0).map(r => `
               <tr>
                 <td style="${tdSL}">${r.label}</td>
-                <td style="${tdS}">${formatNumber(r.amt)}</td>
+                <td style="${tdS}">${formatNumber(r.amt)} <span style="font-size:${totalRows>35?'7px':'8px'};color:#555;">${fmtPct(r.amt)}</span></td>
                 <td style="${tdS}">${fmtN2(r.pf)}</td>
                 <td style="${tdS}">${fmtN2(r.sale)}</td>
                 <td style="${tdS}">—</td>
@@ -372,7 +375,7 @@ function FundingModal({ onClose, projectName, ...props }) {
         <tfoot>
           <tr>
             <td style="${totSL}">총 합계</td>
-            <td style="${totS}">${formatNumber(Math.round(grand.amt) + finTotalAmt_)}</td>
+            <td style="${totS}">${formatNumber(grandTotal)} <span style="font-weight:normal;font-size:${totalRows>35?'7px':'8px'};">(100%)</span></td>
             <td style="${totS}">${fmtN2(grand.pf + feeAmt_)}</td>
             <td style="${totS}">${fmtN2(grand.sale + intAmt_)}</td>
             <td style="${totS}">${fmtN2(grand.equity)}</td>
