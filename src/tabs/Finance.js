@@ -448,7 +448,7 @@ function FundingModal({ onClose, projectName, ...props }) {
             {finTotalAmt_ > 0 && (
               <tbody>
                 <tr>
-                  <td style={{ ...tdCat('left'), color:'#e67e22' }}>금융비{cfLabel_?' ':''}<span style={{fontSize:'10px',fontWeight:'normal',color:'#27ae60'}}>{cfLabel_}</span></td>
+                  <td style={{ ...tdCat('left'), color:'#e67e22' }}>(8) 금융비{cfLabel_?' ':''}<span style={{fontSize:'10px',fontWeight:'normal',color:'#27ae60'}}>{cfLabel_}</span></td>
                   <td style={tdCat()}>{formatNumber(finTotalAmt_)}</td>
                   <td style={{ ...tdCat(), color:'#1a5276' }}>{fmt(feeAmt_)}</td>
                   <td style={{ ...tdCat(), color:'#1a6a3a' }}>{fmt(intAmt_)}</td>
@@ -456,18 +456,18 @@ function FundingModal({ onClose, projectName, ...props }) {
                   <td style={tdCat()}>—</td>
                 </tr>
                 {[
-                  { num:'①', label:'주관사수수료',     amt:mgmtAmt_,      pf:mgmtAmt_,      sale:0,          note:'PF총액×'+d_.mgmtPct+'%' },
-                  { num:'②', label:'선순위 이자',       amt:seniorIntAmt_, pf:0,             sale:seniorIntAmt_, note:seniorAmt_>0?`선순위×${getT_('선순위').rate}%`:'—' },
-                  { num:'③', label:'중순위 이자',       amt:mezIntAmt_,    pf:0,             sale:mezIntAmt_,    note:mezAmt_>0?`중순위×${getT_('중순위').rate}%`:'—' },
-                  { num:'④', label:'후순위 이자',       amt:juniorIntAmt_, pf:0,             sale:juniorIntAmt_, note:juniorAmt_>0?`후순위×${getT_('후순위').rate}%`:'미설정' },
-                  { num:'⑤', label:'선순위 취급수수료', amt:seniorFeeAmt_, pf:seniorFeeAmt_, sale:0,          note:`선순위×${d_.seniorFee||0}%` },
-                  { num:'⑥', label:'중순위 취급수수료', amt:mezFeeAmt_,    pf:mezFeeAmt_,    sale:0,          note:`중순위×${d_.mezFee||0}%` },
-                  { num:'⑦', label:'후순위 취급수수료', amt:juniorFeeAmt_, pf:juniorFeeAmt_, sale:0,          note:`후순위×${d_.juniorFee||0}%` },
-                  { num:'⑧', label:'중도금 무이자',     amt:midIntAmt_,    pf:0,             sale:midIntAmt_,    note:`중도금잔액×${d_.midRate||0}%` },
+                  { label:'주관사수수료',     amt:mgmtAmt_,      pf:mgmtAmt_,      sale:0,          note:'PF총액×'+d_.mgmtPct+'%' },
+                  { label:'선순위 이자',       amt:seniorIntAmt_, pf:0,             sale:seniorIntAmt_, note:seniorAmt_>0?`선순위×${getT_('선순위').rate}%`:'—' },
+                  { label:'중순위 이자',       amt:mezIntAmt_,    pf:0,             sale:mezIntAmt_,    note:mezAmt_>0?`중순위×${getT_('중순위').rate}%`:'—' },
+                  { label:'후순위 이자',       amt:juniorIntAmt_, pf:0,             sale:juniorIntAmt_, note:juniorAmt_>0?`후순위×${getT_('후순위').rate}%`:'미설정' },
+                  { label:'선순위 취급수수료', amt:seniorFeeAmt_, pf:seniorFeeAmt_, sale:0,          note:`선순위×${d_.seniorFee||0}%` },
+                  { label:'중순위 취급수수료', amt:mezFeeAmt_,    pf:mezFeeAmt_,    sale:0,          note:`중순위×${d_.mezFee||0}%` },
+                  { label:'후순위 취급수수료', amt:juniorFeeAmt_, pf:juniorFeeAmt_, sale:0,          note:`후순위×${d_.juniorFee||0}%` },
+                  { label:'중도금 무이자',     amt:midIntAmt_,    pf:0,             sale:midIntAmt_,    note:`중도금잔액×${d_.midRate||0}%` },
                 ].filter(r=>r.amt>0).map((r,ri)=>(
                   <tr key={ri} style={{ backgroundColor: ri%2===0?'white':'#fafafa' }}>
                     <td style={{ paddingLeft:'24px', padding:'5px 8px', fontSize:'11px', color:'#555' }}>
-                      {r.num} {r.label}
+                      {r.label}
                       <span style={{fontSize:'9px',color:'#aaa',marginLeft:'6px'}}>{r.note}</span>
                     </td>
                     <td style={{ padding:'5px 8px', textAlign:'right', fontSize:'11px', fontWeight:'bold' }}>{formatNumber(r.amt)}</td>
