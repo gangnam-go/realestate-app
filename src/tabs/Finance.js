@@ -263,7 +263,7 @@ function FundingModal({ onClose, projectName, ...props }) {
         @media print {
           body > * { display: none !important; }
           #funding-print-area { display: block !important; }
-          @page { margin: 12mm; size: A4; }
+          @page { margin: 10mm; size: A4; }
         }
         #funding-print-area { display: none; }
       `;
@@ -274,59 +274,79 @@ function FundingModal({ onClose, projectName, ...props }) {
     const existing = document.getElementById('funding-print-area');
     if (existing) existing.remove();
 
+    // 데이터량에 따라 폰트 자동 조정
+    const totalRows = catSums.reduce((s,c)=>s+c.items.length,0) + (finTotalAmt_>0?9:0);
+    const fontSize = totalRows > 35 ? '9px' : totalRows > 25 ? '10px' : '11px';
+    const rowPad   = totalRows > 35 ? '3px 6px' : '4px 8px';
+
     const fmtN2 = (v) => v > 0 ? formatNumber(Math.round(v)) : '—';
-    const thStyle = 'background:#222;color:white;padding:6px 8px;text-align:right;font-size:11px;border-bottom:2px solid #444;';
-    const thStyleL = thStyle + 'text-align:left;';
+    const bg = '-webkit-print-color-adjust:exact;print-color-adjust:exact;';
+
+    // ─── 흑백 그레이 톤 통일 스타일 ───
+    // 테이블 헤더 (옅은 그레이 + 검정 굵게 + 위아래 2px 검정)
+    const thS  = `background:#f0f0f0;color:#111;padding:${rowPad};font-size:${fontSize};font-weight:bold;border-bottom:2px solid #555;border-top:2px solid #555;text-align:right;white-space:nowrap;${bg}`;
+    const thSL = thS + 'text-align:left;';
+    // 카테고리 소계 (중간 그레이)
+    const catS = `padding:${rowPad};font-size:${fontSize};font-weight:bold;color:#111;background:#f0f0f0;border-top:1px solid #bbb;border-bottom:1px solid #bbb;text-align:right;white-space:nowrap;${bg}`;
+    const catSL = catS + 'text-align:left;';
+    // 일반 데이터 행
+    const tdS  = `padding:${rowPad};font-size:${fontSize};color:#111;border-bottom:1px solid #e8e8e8;text-align:right;white-space:nowrap;background:white;`;
+    const tdSL = tdS + 'text-align:left;padding-left:20px;';
+    // 총 합계 (진한 그레이 + 검정 굵게 + 위아래 2px 검정)
+    const totS = `padding:${rowPad};font-size:${fontSize};font-weight:bold;color:#111;background:#d5d5d5;border-top:2px solid #333;border-bottom:2px solid #333;text-align:right;white-space:nowrap;${bg}`;
+    const totSL = totS + 'text-align:left;';
 
     const div = document.createElement('div');
     div.id = 'funding-print-area';
+    div.style.fontFamily = "'Malgun Gothic', sans-serif";
+    div.style.color = '#111';
     div.innerHTML = `
-      <h2 style="font-size:17px;font-weight:bold;text-align:center;margin-bottom:3px;font-family:'Malgun Gothic',sans-serif;">사업비 재원조달 상세</h2>
-      <div style="text-align:center;font-size:11px;color:#555;margin-bottom:22px;font-family:'Malgun Gothic',sans-serif;">
+      <h2 style="font-size:16px;font-weight:bold;text-align:center;margin-bottom:4px;color:#111;">사업비 재원조달 상세</h2>
+      <div style="text-align:center;font-size:10px;color:#111;margin-bottom:14px;">
         ${projectName} | ${new Date().toLocaleDateString('ko-KR')} | 단위: 천원 (VAT 포함)
       </div>
-      <table style="width:100%;border-collapse:collapse;font-family:'Malgun Gothic',sans-serif;font-size:11px;">
+      <table style="width:100%;border-collapse:collapse;">
         <thead>
           <tr>
-            <th style="${thStyleL}">항목</th>
-            <th style="${thStyle}">합계(VAT포함)</th>
-            <th style="${thStyle}color:#aed6f1;">필수사업비</th>
-            <th style="${thStyle}color:#a9dfbf;">분양불</th>
-            <th style="${thStyle}color:#d7bde2;">Equity</th>
-            <th style="${thStyle}color:#f5cba7;">준공불</th>
+            <th style="${thSL}">항목</th>
+            <th style="${thS}">합계(VAT포함)</th>
+            <th style="${thS}">필수사업비</th>
+            <th style="${thS}">분양불</th>
+            <th style="${thS}">Equity</th>
+            <th style="${thS}">준공불</th>
           </tr>
         </thead>
         <tbody>
           ${catSums.map(cat => `
-            <tr style="background:#e8e8e8;">
-              <td style="padding:6px 8px;font-weight:bold;border-top:1.5px solid #999;border-bottom:1px solid #ddd;text-align:left;">${cat.cat}</td>
-              <td style="padding:6px 8px;font-weight:bold;border-top:1.5px solid #999;border-bottom:1px solid #ddd;text-align:right;">${formatNumber(Math.round(cat.sum.amt))}</td>
-              <td style="padding:6px 8px;font-weight:bold;border-top:1.5px solid #999;border-bottom:1px solid #ddd;text-align:right;">${fmtN2(cat.sum.pf)}</td>
-              <td style="padding:6px 8px;font-weight:bold;border-top:1.5px solid #999;border-bottom:1px solid #ddd;text-align:right;">${fmtN2(cat.sum.sale)}</td>
-              <td style="padding:6px 8px;font-weight:bold;border-top:1.5px solid #999;border-bottom:1px solid #ddd;text-align:right;">${fmtN2(cat.sum.equity)}</td>
-              <td style="padding:6px 8px;font-weight:bold;border-top:1.5px solid #999;border-bottom:1px solid #ddd;text-align:right;">${fmtN2(cat.sum.retain)}</td>
+            <tr>
+              <td style="${catSL}">${cat.cat}</td>
+              <td style="${catS}">${formatNumber(Math.round(cat.sum.amt))}</td>
+              <td style="${catS}">${fmtN2(cat.sum.pf)}</td>
+              <td style="${catS}">${fmtN2(cat.sum.sale)}</td>
+              <td style="${catS}">${fmtN2(cat.sum.equity)}</td>
+              <td style="${catS}">${fmtN2(cat.sum.retain)}</td>
             </tr>
-            ${cat.items.map((it, i) => `
-              <tr style="background:${i%2===0?'white':'#fafafa'};">
-                <td style="padding:5px 8px;padding-left:20px;border-bottom:1px solid #e8e8e8;text-align:left;color:#333;">
-                  ${it.name}${it.vat > 0 ? ` <span style="font-size:9px;color:#888;">(공급 ${formatNumber(it.supply)} + VAT ${formatNumber(it.vat)})</span>` : ''}
+            ${cat.items.map(it => `
+              <tr>
+                <td style="${tdSL}">
+                  ${it.name}${it.vat > 0 ? ` <span style="font-size:${totalRows>35?'7px':'8px'};color:#555;">(공급 ${formatNumber(it.supply)} + VAT ${formatNumber(it.vat)})</span>` : ''}
                 </td>
-                <td style="padding:5px 8px;border-bottom:1px solid #e8e8e8;text-align:right;">${formatNumber(it.amt)}</td>
-                <td style="padding:5px 8px;border-bottom:1px solid #e8e8e8;text-align:right;color:#1a5276;">${fmtN2(it.pf)}</td>
-                <td style="padding:5px 8px;border-bottom:1px solid #e8e8e8;text-align:right;color:#1a6a3a;">${fmtN2(it.sale)}</td>
-                <td style="padding:5px 8px;border-bottom:1px solid #e8e8e8;text-align:right;color:#6a1b9a;">${fmtN2(it.equity)}</td>
-                <td style="padding:5px 8px;border-bottom:1px solid #e8e8e8;text-align:right;color:#7d3c00;">${fmtN2(it.retain)}</td>
+                <td style="${tdS}">${formatNumber(it.amt)}</td>
+                <td style="${tdS}">${fmtN2(it.pf)}</td>
+                <td style="${tdS}">${fmtN2(it.sale)}</td>
+                <td style="${tdS}">${fmtN2(it.equity)}</td>
+                <td style="${tdS}">${fmtN2(it.retain)}</td>
               </tr>`).join('')}
           `).join('')}
 
           ${finTotalAmt_ > 0 ? `
-            <tr style="background:#e8e8e8;">
-              <td style="padding:6px 8px;font-weight:bold;border-top:1.5px solid #999;border-bottom:1px solid #ddd;text-align:left;">(8) 금융비</td>
-              <td style="padding:6px 8px;font-weight:bold;border-top:1.5px solid #999;border-bottom:1px solid #ddd;text-align:right;">${formatNumber(finTotalAmt_)}</td>
-              <td style="padding:6px 8px;font-weight:bold;border-top:1.5px solid #999;border-bottom:1px solid #ddd;text-align:right;">${fmtN2(feeAmt_)}</td>
-              <td style="padding:6px 8px;font-weight:bold;border-top:1.5px solid #999;border-bottom:1px solid #ddd;text-align:right;">${fmtN2(intAmt_)}</td>
-              <td style="padding:6px 8px;font-weight:bold;border-top:1.5px solid #999;border-bottom:1px solid #ddd;text-align:right;">—</td>
-              <td style="padding:6px 8px;font-weight:bold;border-top:1.5px solid #999;border-bottom:1px solid #ddd;text-align:right;">—</td>
+            <tr>
+              <td style="${catSL}">(8) 금융비</td>
+              <td style="${catS}">${formatNumber(finTotalAmt_)}</td>
+              <td style="${catS}">${fmtN2(feeAmt_)}</td>
+              <td style="${catS}">${fmtN2(intAmt_)}</td>
+              <td style="${catS}">—</td>
+              <td style="${catS}">—</td>
             </tr>
             ${[
               { label:'주관사수수료',     amt:mgmtAmt_,      pf:mgmtAmt_,      sale:0 },
@@ -337,38 +357,39 @@ function FundingModal({ onClose, projectName, ...props }) {
               { label:'중순위 취급수수료', amt:mezFeeAmt_,    pf:mezFeeAmt_,    sale:0 },
               { label:'후순위 취급수수료', amt:juniorFeeAmt_, pf:juniorFeeAmt_, sale:0 },
               { label:'중도금 무이자',     amt:midIntAmt_,    pf:0,             sale:midIntAmt_ },
-            ].filter(r=>r.amt>0).map((r,i) => `
-              <tr style="background:${i%2===0?'white':'#fafafa'};">
-                <td style="padding:5px 8px;padding-left:20px;border-bottom:1px solid #e8e8e8;text-align:left;color:#333;">${r.label}</td>
-                <td style="padding:5px 8px;border-bottom:1px solid #e8e8e8;text-align:right;">${formatNumber(r.amt)}</td>
-                <td style="padding:5px 8px;border-bottom:1px solid #e8e8e8;text-align:right;color:#1a5276;">${fmtN2(r.pf)}</td>
-                <td style="padding:5px 8px;border-bottom:1px solid #e8e8e8;text-align:right;color:#1a6a3a;">${fmtN2(r.sale)}</td>
-                <td style="padding:5px 8px;border-bottom:1px solid #e8e8e8;text-align:right;">—</td>
-                <td style="padding:5px 8px;border-bottom:1px solid #e8e8e8;text-align:right;">—</td>
+            ].filter(r=>r.amt>0).map(r => `
+              <tr>
+                <td style="${tdSL}">${r.label}</td>
+                <td style="${tdS}">${formatNumber(r.amt)}</td>
+                <td style="${tdS}">${fmtN2(r.pf)}</td>
+                <td style="${tdS}">${fmtN2(r.sale)}</td>
+                <td style="${tdS}">—</td>
+                <td style="${tdS}">—</td>
               </tr>
             `).join('')}
           ` : ''}
         </tbody>
         <tfoot>
-          <tr style="page-break-before:always;">
-            <td style="padding:9px 8px;background:#222;color:white;font-weight:bold;font-size:12px;text-align:left;">총 합계</td>
-            <td style="padding:9px 8px;background:#222;color:white;font-weight:bold;font-size:12px;text-align:right;">${formatNumber(Math.round(grand.amt + finTotalAmt_))}</td>
-            <td style="padding:9px 8px;background:#222;color:#aed6f1;font-weight:bold;font-size:12px;text-align:right;">${fmtN2(grand.pf + feeAmt_)}</td>
-            <td style="padding:9px 8px;background:#222;color:#a9dfbf;font-weight:bold;font-size:12px;text-align:right;">${fmtN2(grand.sale + intAmt_)}</td>
-            <td style="padding:9px 8px;background:#222;color:#d7bde2;font-weight:bold;font-size:12px;text-align:right;">${fmtN2(grand.equity)}</td>
-            <td style="padding:9px 8px;background:#222;color:#f5cba7;font-weight:bold;font-size:12px;text-align:right;">${fmtN2(grand.retain)}</td>
+          <tr>
+            <td style="${totSL}">총 합계</td>
+            <td style="${totS}">${formatNumber(Math.round(grand.amt) + finTotalAmt_)}</td>
+            <td style="${totS}">${fmtN2(grand.pf + feeAmt_)}</td>
+            <td style="${totS}">${fmtN2(grand.sale + intAmt_)}</td>
+            <td style="${totS}">${fmtN2(grand.equity)}</td>
+            <td style="${totS}">${fmtN2(grand.retain)}</td>
           </tr>
         </tfoot>
       </table>
-      <div style="margin-top:12px;font-size:11px;color:#444;font-family:'Malgun Gothic',sans-serif;display:flex;gap:20px;flex-wrap:wrap;">
+      <div style="margin-top:10px;font-size:9px;color:#111;border-top:1px solid #ddd;padding-top:6px;display:flex;gap:20px;flex-wrap:wrap;">
         ${[
-          { label:'필수사업비', val: grand.pf,     color:'#1a5276' },
-          { label:'분양불',    val: grand.sale,   color:'#1a6a3a' },
-          { label:'Equity',    val: grand.equity, color:'#6a1b9a' },
-          { label:'준공불',    val: grand.retain, color:'#7d3c00' },
-        ].filter(x => x.val > 0).map(x =>
-          `<span style="color:${x.color};font-weight:bold;">■ ${x.label}</span> ${formatNumber(Math.round(x.val))}천원${grand.amt > 0 ? ` (${(x.val/grand.amt*100).toFixed(1)}%)` : ''}`
-        ).join('&nbsp;&nbsp;&nbsp;')}
+          { label:'필수사업비', val: grand.pf + feeAmt_    },
+          { label:'분양불',    val: grand.sale + intAmt_  },
+          { label:'Equity',    val: grand.equity          },
+          { label:'준공불',    val: grand.retain          },
+        ].filter(x => x.val > 0).map(x => {
+          const total = grand.amt + finTotalAmt_;
+          return `<span><strong>■ ${x.label}</strong> ${formatNumber(Math.round(x.val))}천원${total > 0 ? ` (${(x.val/total*100).toFixed(1)}%)` : ''}</span>`;
+        }).join('')}
       </div>
     `;
     document.body.appendChild(div);
