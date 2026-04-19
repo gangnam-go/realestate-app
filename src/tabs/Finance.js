@@ -304,7 +304,7 @@ function FundingModal({ onClose, projectName, ...props }) {
     div.style.fontFamily = "'Malgun Gothic', sans-serif";
     div.style.color = '#111';
     div.innerHTML = `
-      <h2 style="font-size:16px;font-weight:bold;text-align:center;margin-bottom:4px;color:#111;">사업비 재원조달 상세</h2>
+      <h2 style="font-size:16px;font-weight:bold;text-align:center;margin-bottom:4px;color:#111;">사업비 및 재원조달 상세</h2>
       <div style="text-align:center;font-size:10px;color:#111;margin-bottom:14px;">
         ${projectName} | ${new Date().toLocaleDateString('ko-KR')} | 단위: 천원 (VAT 포함)
       </div>
