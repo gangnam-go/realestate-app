@@ -450,7 +450,7 @@ function FundingModal({ onClose, projectName, ...props }) {
 
         <div ref={printRef}>
           <h2 style={{ textAlign:'center', fontSize:'18px', fontWeight:'bold', marginBottom:'4px' }}>
-            사업비 재원조달 상세
+            사업비 및 재원조달 상세
           </h2>
           <div style={{ textAlign:'center', fontSize:'12px', color:'#666', marginBottom:'20px' }}>
             {projectName} | {new Date().toLocaleDateString('ko-KR')} | 단위: 천원 (VAT 포함)
