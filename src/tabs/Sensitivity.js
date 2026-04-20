@@ -469,10 +469,33 @@ export default function Sensitivity({
       const shouldPay = (stepIdx, colKey) => colKey === 'amt' ? true : colStepMap[colKey] >= stepIdx;
       const rowVal = (stepIdx, amount) => cols.map(c => shouldPay(stepIdx, c.key) ? amount : 0);
 
-      const shortageF = Math.max(0, (cost1 + cost2 - pfAmount - collateralLoan) - saleMax);
-      const shortageG = Math.max(0, (cost1 + cost2 + cost3 - pfAmount - collateralLoan) - saleMax);
-      const sigongExitNote = shortageF > 0 ? `시공사 EXIT 불가 (${fmtUk(shortageF)} 부족)` : '시공사 EXIT';
-      const pfExitNote = shortageG > 0 ? `금융기관 EXIT 불가 (${fmtUk(shortageG)} 부족)` : '금융기관 EXIT';
+      // 총가용 최대치 (100% 분양 시)
+      const totalAvail = pfAmount + saleMax + collateralLoan;
+      const cum1 = cost1;
+      const cum2 = cum1 + cost2;
+      const cum3 = cum2 + cost3;
+      const cum5 = cum3 + cost4 + cost5;
+      const cum6 = cum5 + cost6;
+      const shortageSigong = Math.max(0, cum2 - totalAvail);
+      const shortagePF     = Math.max(0, cum3 - totalAvail);
+      const shortageEquity = Math.max(0, cum6 - totalAvail);
+      
+      const sigongExitNote = (() => {
+        if (shortageSigong <= 0) return '시공사 EXIT';
+        if (cum1 > totalAvail) return `시공사 EXIT 불가 (${fmtUk(cum1 - totalAvail)} 회수 불가)`;
+        return `시공사 EXIT 불가 (${fmtUk(shortageSigong)} 부족)`;
+      })();
+      const pfExitNote = (() => {
+        if (shortagePF <= 0) return '금융기관 EXIT';
+        if (cum2 > totalAvail) return `금융기관 EXIT 불가 (${fmtUk(cost3)} 회수 불가)`;
+        return `금융기관 EXIT 불가 (${fmtUk(shortagePF)} 부족)`;
+      })();
+      const equityExitNote = (() => {
+        if (cost6 <= 0) return '';
+        if (shortageEquity <= 0) return 'Equity 회수';
+        if (cum3 > totalAvail) return `Equity 회수 불가 (${fmtUk(cost6)} 회수 불가)`;
+        return `Equity 일부 회수 불가 (${fmtUk(shortageEquity)} 부족)`;
+      })();
 
       const profitBeforeVat = colD[colD.length-1] - cost1 - cost2 - cost3 - cost4 - cost5 - cost6;
       const profitAtL = profitBeforeVat - vatSettle;
