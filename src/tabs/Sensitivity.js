@@ -95,7 +95,15 @@ export default function Sensitivity({
   console.log('목표값: 4,640,047');
   console.log('---');
   console.log('salesData.vatByMonth:', salesData?.vatByMonth);
-  console.log('salesData.vatByMonth 합:', (salesData?.vatByMonth||[]).reduce((s,v)=>s+(v||0), 0));
+  // vatByMonth가 Object일 수 있으므로 type 체크
+  const vbm = salesData?.vatByMonth;
+  if (Array.isArray(vbm)) {
+    console.log('salesData.vatByMonth 합 (배열):', vbm.reduce((s,v)=>s+(v||0), 0));
+  } else if (vbm && typeof vbm === 'object') {
+    const sum = Object.values(vbm).reduce((s,v)=>s+(typeof v === 'number' ? v : 0), 0);
+    console.log('salesData.vatByMonth 합 (객체):', sum);
+    console.log('salesData.vatByMonth 구조:', JSON.stringify(vbm, null, 2));
+  }
   console.log('monthlyPayments.vatSettlements:', monthlyPayments?.vatSettlements);
   console.log('cashFlowResult.result 마지막 vatSettle:', cashFlowResult?.result?.[cashFlowResult.result.length-1]?.vatSettle);
   const totalVatSettle = (cashFlowResult?.result||[]).reduce((s,r) => s + (r?.vatSettle||0), 0);
