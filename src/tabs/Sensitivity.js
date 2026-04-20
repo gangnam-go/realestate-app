@@ -180,7 +180,7 @@ export default function Sensitivity({
       cols.push({ key:'I', label:'I', rate:scenario.step5, subLabel:'+ 토지 잔금' });
     }
     cols.push({ key:'J', label:'J', rate:scenario.step6, subLabel:'+ Equity 회수' });
-    cols.push({ key:'L', label:'L', rate:100.0, subLabel:'현재 계획' });
+    cols.push({ key:'L', label:'L', rate:100.0, subLabel:'100% 분양' });
 
     // 각 컬럼의 분양수입과 총가용금액
     const colSaleIn = cols.map(c => {
@@ -461,7 +461,7 @@ export default function Sensitivity({
       if (cost4 > 0) cols.push({ key:'H', label:'H', rate:scenario.step4, subLabel:'+ 담보대출비용' });
       if (cost5 > 0) cols.push({ key:'I', label:'I', rate:scenario.step5, subLabel:'+ 토지 잔금' });
       cols.push({ key:'J', label:'J', rate:scenario.step6, subLabel:'+ Equity 회수' });
-      cols.push({ key:'L', label:'L', rate:100.0, subLabel:'현재 계획' });
+      cols.push({ key:'L', label:'L', rate:100.0, subLabel:'100% 분양' });
 
       const colSaleIn = cols.map(c => c.key === 'amt' ? saleMax : saleMax * (c.rate/100));
       const colD = colSaleIn.map(s => pfAmount + s + collateralLoan);
@@ -625,7 +625,7 @@ export default function Sensitivity({
         ${cost4 > 0 ? '<strong>H:</strong> + 담보대출비용 &nbsp;|&nbsp;' : ''}
         ${cost5 > 0 ? '<strong>I:</strong> + 토지 잔금 &nbsp;|&nbsp;' : ''}
         <strong>J:</strong> + Equity 회수 &nbsp;|&nbsp;
-        <strong>L:</strong> 100% 분양 (현재 계획)
+        <strong>L:</strong> 100% 분양
       </div>
     `;
     document.body.appendChild(div);
@@ -740,7 +740,7 @@ export default function Sensitivity({
             {cost4 > 0 && <div>• <strong>H:</strong> + 담보대출비용</div>}
             {cost5 > 0 && <div>• <strong>I:</strong> + 토지 잔금</div>}
             <div>• <strong>J:</strong> + Equity 회수 (시행사 원금)</div>
-            <div>• <strong>L:</strong> 100% 분양 기준 (현재 계획) — 이 컬럼에서 시행이익/손실 확인</div>
+            <div>• <strong>L:</strong> 100% 분양 기준 — 이 컬럼에서 시행이익/손실 확인</div>
           </div>
         </div>
       )}
