@@ -263,9 +263,9 @@ export default function Sensitivity({
       return `Equity 일부 회수 불가 (${fmtUk(shortageEquity)} 부족)`;
     })();
     
-    rows.push({ type:'data', label:'① 필수사업비', values: rowVal(1, cost1), note: sigongExitNote, exitFail: shortageF > 0 });
+    rows.push({ type:'data', label:'① 필수사업비', values: rowVal(1, cost1), note: sigongExitNote, exitFail: shortageSigong > 0 });
     rows.push({ type:'data', label:'② 분양 연동 지출 사업비', values: rowVal(2, cost2) });
-    rows.push({ type:'data', label:'③ PF 대출상환', values: rowVal(3, cost3), note: pfExitNote, highlight:true, exitFail: shortageG > 0 });
+    rows.push({ type:'data', label:'③ PF 대출상환', values: rowVal(3, cost3), note: pfExitNote, highlight:true, exitFail: shortagePF > 0 });
     if (cost4 > 0) {
       rows.push({ type:'data', label:'④ 담보대출비용', values: rowVal(4, cost4) });
     }
@@ -525,7 +525,7 @@ export default function Sensitivity({
       
       // ① 필수사업비
       const r1vals = rowVal(1, cost1);
-      rowsHtml += `<tr><td style="${tdSL};padding-left:16px;">① 필수사업비</td>${r1vals.map((v,i) => `<td style="${hCellStyle(i, tdS)}">${fmtUk(v)}</td>`).join('')}<td style="${noteStyle(shortageF>0, false)}">${sigongExitNote}</td></tr>`;
+      rowsHtml += `<tr><td style="${tdSL};padding-left:16px;">① 필수사업비</td>${r1vals.map((v,i) => `<td style="${hCellStyle(i, tdS)}">${fmtUk(v)}</td>`).join('')}<td style="${noteStyle(shortageSigong>0, false)}">${sigongExitNote}</td></tr>`;
       
       // ② 분양연동
       const r2vals = rowVal(2, cost2);
@@ -533,8 +533,8 @@ export default function Sensitivity({
       
       // ③ PF 대출상환 (highlight)
       const r3vals = rowVal(3, cost3);
-      const r3CellS = `padding:${cellPad};font-size:${fontSize};color:${shortageG>0?'#c0392b':'#b7791f'};font-weight:bold;border-bottom:1px solid #e8e8e8;background:white;text-align:right;white-space:nowrap;`;
-      rowsHtml += `<tr><td style="${tdSL};padding-left:16px;font-weight:bold;color:${shortageG>0?'#c0392b':'#b7791f'};">③ PF 대출상환</td>${r3vals.map((v,i) => `<td style="${cols[i].highlight ? r3CellS + highlightBg : r3CellS}">${fmtUk(v)}</td>`).join('')}<td style="${noteStyle(shortageG>0, false)}">${pfExitNote}</td></tr>`;
+      const r3CellS = `padding:${cellPad};font-size:${fontSize};color:${shortagePF>0?'#c0392b':'#b7791f'};font-weight:bold;border-bottom:1px solid #e8e8e8;background:white;text-align:right;white-space:nowrap;`;
+      rowsHtml += `<tr><td style="${tdSL};padding-left:16px;font-weight:bold;color:${shortagePF>0?'#c0392b':'#b7791f'};">③ PF 대출상환</td>${r3vals.map((v,i) => `<td style="${cols[i].highlight ? r3CellS + highlightBg : r3CellS}">${fmtUk(v)}</td>`).join('')}<td style="${noteStyle(shortagePF>0, false)}">${pfExitNote}</td></tr>`;
       
       // ④ 담보대출비용
       if (cost4 > 0) {
