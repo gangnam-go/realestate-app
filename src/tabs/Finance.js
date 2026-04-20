@@ -724,13 +724,34 @@ function LTVModal({ onClose, salesData, incomeData, projectName, data, onChange 
       return { ...t, rows, calc };
     }).filter(t => t.calc.amt > 0);
 
-    const totalAmtP      = tranchesPrint.reduce((s,t) => s+t.calc.amt, 0);
-    const totalInterestP = tranchesPrint.reduce((s,t) => s+t.calc.interest, 0);
-    const avgRateP       = totalAmtP > 0 ? (totalInterestP/totalAmtP*100) : 0;
-    const diffP          = collTotal - totalAmtP;
+    const totalAmtP = tranchesPrint.reduce((s,t) => s+t.calc.amt, 0);
+    const diffP     = collTotal - totalAmtP;
 
-    const trBg = { '선순위':'#1a3a5c', '중순위':'#1a5c2a', '후순위':'#7d3c00' };
-    const tdBase = 'padding:5px 8px;border-bottom:1px solid #e0e0e0;text-align:right;font-size:11px;';
+    // ─── 흑백 그레이 톤 스타일 ───
+    const bg = '-webkit-print-color-adjust:exact;print-color-adjust:exact;';
+    const fontSize = '11px';
+    const rowPad = '5px 8px';
+
+    // 테이블 헤더
+    const thS  = `background:#f0f0f0;color:#111;padding:${rowPad};font-size:${fontSize};font-weight:bold;border-bottom:2px solid #555;border-top:2px solid #555;text-align:right;white-space:nowrap;${bg}`;
+    const thSL = thS + 'text-align:left;';
+    const thSC = thS + 'text-align:center;';
+    // 장르/섹션 헤더 (colspan)
+    const secS = `background:#fafafa;color:#111;font-weight:bold;padding:5px 8px;font-size:${fontSize};border-top:1.5px solid #888;border-bottom:1px solid #bbb;${bg}`;
+    // 일반 데이터 행
+    const tdS  = `padding:${rowPad};font-size:${fontSize};color:#111;border-bottom:1px solid #e8e8e8;background:white;text-align:right;white-space:nowrap;`;
+    const tdSL = tdS + 'text-align:left;';
+    const tdSC = tdS + 'text-align:center;';
+    // 소계행
+    const subS = `padding:${rowPad};font-size:${fontSize};font-weight:bold;color:#111;background:#f0f0f0;border-top:1px solid #bbb;border-bottom:1px solid #bbb;text-align:right;white-space:nowrap;${bg}`;
+    const subSL= subS + 'text-align:left;';
+    const subSC= subS + 'text-align:center;';
+    // 합계행
+    const totS = `padding:${rowPad};font-size:${fontSize};font-weight:bold;color:#111;background:#d5d5d5;border-top:2px solid #333;border-bottom:2px solid #333;text-align:right;white-space:nowrap;${bg}`;
+    const totSL= totS + 'text-align:left;';
+    const totSC= totS + 'text-align:center;';
+    // 소제목
+    const sectionTitle = 'font-weight:bold;font-size:12px;color:#111;border-bottom:2px solid #333;padding-bottom:4px;margin:18px 0 10px;';
 
     const styleId = 'ltv-print-style';
     if (!document.getElementById(styleId)) {
@@ -740,7 +761,7 @@ function LTVModal({ onClose, salesData, incomeData, projectName, data, onChange 
         @media print {
           body > * { display: none !important; }
           #ltv-print-area { display: block !important; }
-          @page { margin: 12mm; size: A4; }
+          @page { margin: 10mm; size: A4; }
         }
         #ltv-print-area { display: none; }
       `;
@@ -757,108 +778,141 @@ function LTVModal({ onClose, salesData, incomeData, projectName, data, onChange 
     div.style.color = '#111';
 
     div.innerHTML = `
-      <h2 style="font-size:17px;font-weight:bold;text-align:center;margin-bottom:3px;">부동산 PF 담보인정액 · 트랜치 계산기</h2>
-      <div style="text-align:center;font-size:11px;color:#555;margin-bottom:22px;">${projectName} | ${new Date().toLocaleDateString('ko-KR')} | 단위: 천원</div>
+      <h2 style="font-size:16px;font-weight:bold;text-align:center;margin-bottom:4px;color:#111;">
+        부동산 PF 담보인정액 · 트랜치 계산기
+      </h2>
+      <div style="text-align:center;font-size:10px;color:#111;margin-bottom:14px;">
+        ${projectName} | ${new Date().toLocaleDateString('ko-KR')} | 단위: 천원
+      </div>
 
-      <div style="font-weight:bold;font-size:12px;border-bottom:2px solid #222;padding-bottom:4px;margin:0 0 10px;">■ 주관사 선택</div>
-      <div style="display:inline-block;border:1px solid #aaa;padding:5px 14px;border-radius:4px;font-size:11px;margin-bottom:14px;background:#f5f5f5;">
+      <!-- 주관사 선택 -->
+      <div style="${sectionTitle}">■ 주관사 선택</div>
+      <div style="display:inline-block;border:1px solid #555;padding:5px 14px;border-radius:4px;font-size:11px;margin-bottom:14px;background:#f5f5f5;color:#111;${bg}">
         ● ${issuer === 'bank' ? '은행' : '증권사'}
         &nbsp;|&nbsp; 적용 LTV: 공동주택 ${ltv.apt}% / 오피스텔 ${ltv.offi}%${storeFloors.length > 0 ? ' / ' + storeFloors.map((r,i) => `${r.type} ${storeLtv[i]||0}%`).join(' / ') : ''}
       </div>
 
-      <div style="font-weight:bold;font-size:12px;border-bottom:2px solid #222;padding-bottom:4px;margin:14px 0 10px;">■ 용도별 분양매출 · LTV 입력</div>
+      <!-- 용도별 분양매출 · LTV -->
+      <div style="${sectionTitle}">■ 용도별 분양매출 · LTV 입력</div>
       <table style="width:100%;border-collapse:collapse;margin-bottom:4px;">
         <thead><tr>
-          <th style="background:#222;color:white;padding:6px 8px;text-align:left;font-size:11px;border-bottom:2px solid #444;">용도</th>
-          <th style="background:#222;color:white;padding:6px 8px;text-align:right;font-size:11px;border-bottom:2px solid #444;">분양매출 (천원)</th>
-          <th style="background:#222;color:white;padding:6px 8px;text-align:center;font-size:11px;border-bottom:2px solid #444;width:80px;">LTV (%)</th>
-          <th style="background:#222;color:white;padding:6px 8px;text-align:right;font-size:11px;border-bottom:2px solid #444;">담보인정액 (천원)</th>
+          <th style="${thSL}">용도</th>
+          <th style="${thS}">분양매출 (천원)</th>
+          <th style="${thSC}width:80px;">LTV (%)</th>
+          <th style="${thS}">담보인정액 (천원)</th>
         </tr></thead>
         <tbody>
-          ${ltvRows.map((r,i) => `
-            <tr style="background:${i%2!==0?'#fafafa':'white'};">
-              <td style="${tdBase}text-align:left;font-weight:bold;">
-                ${r.label}${r.note?`<br><span style="font-size:9px;color:#888;font-weight:normal;">${r.note}</span>`:''}
+          ${ltvRows.map(r => `
+            <tr>
+              <td style="${tdSL}font-weight:bold;">
+                ${r.label}${r.note?`<br><span style="font-size:9px;color:#555;font-weight:normal;">${r.note}</span>`:''}
               </td>
-              <td style="${tdBase}">${fmtN(r.sale)}</td>
-              <td style="${tdBase}text-align:center;font-weight:bold;">${r.ltv}%</td>
-              <td style="${tdBase}font-weight:bold;">${fmtN(r.coll)}</td>
+              <td style="${tdS}">${fmtN(r.sale)}</td>
+              <td style="${tdSC}font-weight:bold;">${r.ltv}%</td>
+              <td style="${tdS}font-weight:bold;">${fmtN(r.coll)}</td>
             </tr>`).join('')}
           ${storeRowsPrint.length > 0 ? `
-            <tr style="background:#e8e8e8;"><td colspan="4" style="padding:5px 8px;font-weight:bold;border-top:1.5px solid #999;font-size:11px;">근린상가 (층별)</td></tr>
-            ${storeRowsPrint.map((r,i) => `
-              <tr style="background:${i%2!==0?'#fafafa':'white'};">
-                <td style="${tdBase}text-align:left;padding-left:18px;">${r.label}</td>
-                <td style="${tdBase}">${fmtN(r.sale)}</td>
-                <td style="${tdBase}text-align:center;font-weight:bold;">${r.ltv}%</td>
-                <td style="${tdBase}font-weight:bold;">${fmtN(r.coll)}</td>
+            <tr><td colspan="4" style="${secS}">근린상가 (층별)</td></tr>
+            ${storeRowsPrint.map(r => `
+              <tr>
+                <td style="${tdSL}padding-left:20px;">${r.label}</td>
+                <td style="${tdS}">${fmtN(r.sale)}</td>
+                <td style="${tdSC}font-weight:bold;">${r.ltv}%</td>
+                <td style="${tdS}font-weight:bold;">${fmtN(r.coll)}</td>
               </tr>`).join('')}
             ${storeRowsPrint.length > 1 ? `
-              <tr style="background:#f0f0f0;">
-                <td style="${tdBase}text-align:left;padding-left:18px;font-weight:bold;">근린상가 소계</td>
-                <td style="${tdBase}font-weight:bold;">${fmtN(storeSaleTotal)}</td>
-                <td style="${tdBase}"></td>
-                <td style="${tdBase}font-weight:bold;">${fmtN(collStore)}</td>
+              <tr>
+                <td style="${subSL}padding-left:20px;">근린상가 소계</td>
+                <td style="${subS}">${fmtN(storeSaleTotal)}</td>
+                <td style="${subSC}">—</td>
+                <td style="${subS}">${fmtN(collStore)}</td>
               </tr>` : ''}
           ` : ''}
         </tbody>
         <tfoot>
           <tr>
-            <td colspan="2" style="padding:9px 8px;background:#222;color:white;font-weight:bold;font-size:12px;">담보인정액 합계</td>
-            <td style="padding:9px 8px;background:#222;color:rgba(255,255,255,0.7);text-align:center;font-size:11px;">≈ ${fmtB(collTotal)}</td>
-            <td style="padding:9px 8px;background:#222;color:#aed6f1;font-weight:bold;font-size:13px;text-align:right;">${fmtN(collTotal)}</td>
+            <td colspan="2" style="${totSL}">담보인정액 합계</td>
+            <td style="${totSC}">≈ ${fmtB(collTotal)}</td>
+            <td style="${totS}">${fmtN(collTotal)}</td>
           </tr>
         </tfoot>
       </table>
 
-      <div style="font-weight:bold;font-size:12px;border-bottom:2px solid #222;padding-bottom:4px;margin:18px 0 10px;">■ 트랜치 구성</div>
-      <table style="width:100%;border-collapse:collapse;margin-bottom:4px;">
+      <!-- 트랜치 구성 (상세) -->
+      <div style="${sectionTitle}">■ 트랜치 구성</div>
+      <table style="width:100%;border-collapse:collapse;margin-bottom:14px;">
         <thead><tr>
-          <th style="background:#222;color:white;padding:6px 8px;text-align:left;font-size:11px;border-bottom:2px solid #444;">트랜치</th>
-          <th style="background:#222;color:white;padding:6px 8px;text-align:right;font-size:11px;border-bottom:2px solid #444;">금액 (천원)</th>
-          <th style="background:#222;color:white;padding:6px 8px;text-align:right;font-size:11px;border-bottom:2px solid #444;">비중 (%)</th>
-          <th style="background:#222;color:white;padding:6px 8px;text-align:right;font-size:11px;border-bottom:2px solid #444;">금리 (%)</th>
-          <th style="background:#222;color:white;padding:6px 8px;text-align:right;font-size:11px;border-bottom:2px solid #444;">연간이자 (천원)</th>
-          <th style="background:#222;color:white;padding:6px 8px;text-align:left;font-size:11px;border-bottom:2px solid #444;">구성항목</th>
+          <th style="${thSL}">트랜치</th>
+          <th style="${thSC}width:70px;">비중 (%)</th>
+          <th style="${thSC}width:70px;">금리 (%)</th>
+          <th style="${thSL}">구성항목</th>
         </tr></thead>
         <tbody>
           ${tranchesPrint.map(t => {
-            const bg = trBg[t.name] || '#333';
-            const desc = t.rows.map(r => `${r.use} ${r.pct}%`).join(' / ');
             const pct = totalAmtP > 0 ? (t.calc.amt/totalAmtP*100).toFixed(1) : '0.0';
+            const rowsHTML = t.rows.map(r => {
+              const c = collMapExt[r.use] || 0;
+              const rowAmt = Math.round(c * (parseFloat(r.pct)||0) / 100);
+              return `<div style="margin-bottom:2px;">${r.use} <span style="color:#555;">${r.pct}%</span> <span style="color:#555;font-size:10px;">(담보 ${fmtN(c)} × ${r.pct}% = ${fmtN(rowAmt)})</span></div>`;
+            }).join('');
             return `
-              <tr style="background:${bg};color:white;">
-                <td style="padding:7px 8px;font-weight:bold;text-align:left;">${t.name}</td>
-                <td style="padding:7px 8px;font-weight:bold;text-align:right;">
-                  ${fmtN(t.calc.amt)}<br><span style="font-size:9px;opacity:0.8;">≈ ${fmtB(t.calc.amt)}</span>
+              <tr>
+                <td style="${subSL}">${t.name}<br><span style="font-weight:normal;font-size:10px;color:#555;">${fmtN(t.calc.amt)} 천원 ≈ ${fmtB(t.calc.amt)}</span></td>
+                <td style="${tdSC}font-weight:bold;">${pct}%</td>
+                <td style="${tdSC}font-weight:bold;">${t.rate}%</td>
+                <td style="${tdSL}font-size:10px;">${rowsHTML}</td>
+              </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+
+      <!-- 트랜치 전체 합계 (연간이자 제거) -->
+      <div style="${sectionTitle}">■ 트랜치 전체 합계</div>
+      <table style="width:100%;border-collapse:collapse;margin-bottom:4px;">
+        <thead><tr>
+          <th style="${thSL}">트랜치</th>
+          <th style="${thS}">금액 (천원)</th>
+          <th style="${thSC}width:70px;">비중 (%)</th>
+          <th style="${thSC}width:70px;">금리 (%)</th>
+          <th style="${thSL}">구성항목</th>
+        </tr></thead>
+        <tbody>
+          ${tranchesPrint.map(t => {
+            const pct = totalAmtP > 0 ? (t.calc.amt/totalAmtP*100).toFixed(1) : '0.0';
+            const desc = t.rows.map(r => `${r.use} ${r.pct}%`).join(' / ');
+            return `
+              <tr>
+                <td style="${tdSL}font-weight:bold;">${t.name}</td>
+                <td style="${tdS}font-weight:bold;">
+                  ${fmtN(t.calc.amt)}<br><span style="font-size:9px;color:#555;font-weight:normal;">≈ ${fmtB(t.calc.amt)}</span>
                 </td>
-                <td style="padding:7px 8px;text-align:right;">${pct}%</td>
-                <td style="padding:7px 8px;text-align:right;">${t.rate}%</td>
-                <td style="padding:7px 8px;font-weight:bold;text-align:right;">${fmtN(t.calc.interest)}</td>
-                <td style="padding:7px 8px;text-align:left;">${desc}</td>
+                <td style="${tdSC}">${pct}%</td>
+                <td style="${tdSC}">${t.rate}%</td>
+                <td style="${tdSL}font-size:10px;">${desc}</td>
               </tr>`;
           }).join('')}
         </tbody>
         <tfoot>
           <tr>
-            <td style="padding:9px 8px;background:#222;color:white;font-weight:bold;font-size:12px;">합 계</td>
-            <td style="padding:9px 8px;background:#222;color:#aed6f1;font-weight:bold;font-size:12px;text-align:right;">${fmtN(totalAmtP)}</td>
-            <td style="padding:9px 8px;background:#222;color:rgba(255,255,255,0.7);text-align:right;">100.0%</td>
-            <td style="padding:9px 8px;background:#222;color:rgba(255,255,255,0.7);text-align:right;">${avgRateP.toFixed(1)}%</td>
-            <td style="padding:9px 8px;background:#222;color:#f5cba7;font-weight:bold;font-size:12px;text-align:right;">${fmtN(totalInterestP)}</td>
-            <td style="padding:9px 8px;background:#222;"></td>
+            <td style="${totSL}">합 계</td>
+            <td style="${totS}">${fmtN(totalAmtP)}</td>
+            <td style="${totSC}">100.0%</td>
+            <td style="${totSC}">—</td>
+            <td style="${totSL}">—</td>
           </tr>
         </tfoot>
       </table>
 
       ${Math.abs(diffP) > 0 ? `
-        <div style="color:#c0392b;font-size:10px;margin-top:8px;padding:5px 8px;background:#fdecea;border:1px solid #f5b7b1;border-radius:3px;">
+        <div style="color:#111;font-size:10px;margin-top:8px;padding:5px 8px;background:#f5f5f5;border:1px solid #999;border-radius:3px;${bg}">
           ${diffP > 0
             ? `⚠ 담보인정액(${fmtN(collTotal)})이 트랜치 합계(${fmtN(totalAmtP)})보다 ${fmtN(diffP)}천원 미배분`
             : `⚠ 트랜치 합계(${fmtN(totalAmtP)})가 담보인정액(${fmtN(collTotal)})을 ${fmtN(-diffP)}천원 초과`}
         </div>` : ''}
 
-      <div style="font-size:10px;color:#888;margin-top:14px;">※ LTV는 주관사 협의에 따라 변동될 수 있습니다. 담보인정액은 추정치입니다.</div>
+      <div style="font-size:9px;color:#111;margin-top:14px;border-top:1px solid #ddd;padding-top:6px;">
+        ※ LTV는 주관사 협의에 따라 변동될 수 있습니다. 담보인정액은 추정치입니다.
+      </div>
     `;
     document.body.appendChild(div);
     setTimeout(() => {
