@@ -29,6 +29,29 @@ export default function Sensitivity({
   console.log('incomeData.salesSumBal:',    incomeData?.salesSumBal);
   console.log('incomeData.salesSumOffi:',   incomeData?.salesSumOffi);
   console.log('incomeData.salesSumStore:',  incomeData?.salesSumStore);
+  // 🔍 2차 진단 — 구체적인 값들
+  console.log('=== 2차 진단 ===');
+  console.log('--- 분양금액 (salesData의 salesSum들) ---');
+  console.log('salesSumApt:',     salesData?.salesSumApt);
+  console.log('salesSumBal:',     salesData?.salesSumBal);
+  console.log('salesSumOffi:',    salesData?.salesSumOffi);
+  console.log('salesSumStore:',   salesData?.salesSumStore);
+  console.log('salesSumPublic:',  salesData?.salesSumPublic);
+  console.log('salesSumPubfac:',  salesData?.salesSumPubfac);
+  console.log('salesSumPublicBal:', salesData?.salesSumPublicBal);
+
+  console.log('--- PF 금액 (financeData.ltvCalc.tranches) ---');
+  console.log('tranches:', financeData?.ltvCalc?.tranches);
+
+  console.log('--- Equity & 금리 (financeData.repayCondition) ---');
+  console.log('repayCondition:', financeData?.repayCondition);
+
+  console.log('--- cashFlowResult 키들 ---');
+  console.log('cashFlowResult keys:', cashFlowResult ? Object.keys(cashFlowResult) : 'null');
+
+  console.log('--- costData.paymentSchedule (토지 잔금용) ---');
+  console.log('costData.land:', costData?.land);
+  console.log('costData.paymentSchedule keys:', costData?.paymentSchedule ? Object.keys(costData.paymentSchedule) : 'null');
   
   const [view, setView] = React.useState('saleRate');
 
