@@ -36,7 +36,6 @@ function calcFundTotals(monthlyPayments, cashFlowResult) {
     });
   });
   
-  // 금융비 (Report.js 로직)
   if (cashFlowResult && n > 0) {
     months.forEach((ym, idx) => {
       const i = (cashFlowResult.months||[]).indexOf(ym);
@@ -66,7 +65,6 @@ function calcLandLastMonth(monthlyPayments) {
   const lastIdx = n - 1;
   let total = 0;
   items.forEach(item => {
-    // pfMonthly + saleMonthly + eqMonthly + loanMonthly 모두 합산
     ['pfMonthly','saleMonthly','eqMonthly','loanMonthly'].forEach(k => {
       const arr = item[k];
       if (arr && arr[lastIdx]) total += arr[lastIdx];
@@ -88,64 +86,56 @@ export default function Sensitivity({
 }) {
   const [view, setView] = useState('saleRate');
   const [collateralLoan, setCollateralLoan] = useState(0);
-  const [collateralCost, setCollateralCost] = useState(0); // 담보대출비용 (수동 입력)
+  const [collateralCost, setCollateralCost] = useState(0);
 
-  // 🔍 부가세 소스 탐색 (확인 후 삭제)
-  console.log('=== 부가세 소스 탐색 ===');
-  console.log('목표값: 4,640,047');
-  console.log('---');
-  console.log('salesData.vatByMonth:', salesData?.vatByMonth);
-  // vatByMonth가 Object일 수 있으므로 type 체크
-  const vbm = salesData?.vatByMonth;
-  if (Array.isArray(vbm)) {
-    console.log('salesData.vatByMonth 합 (배열):', vbm.reduce((s,v)=>s+(v||0), 0));
-  } else if (vbm && typeof vbm === 'object') {
-    const sum = Object.values(vbm).reduce((s,v)=>s+(typeof v === 'number' ? v : 0), 0);
-    console.log('salesData.vatByMonth 합 (객체):', sum);
-    console.log('salesData.vatByMonth 구조:', JSON.stringify(vbm, null, 2));
-  }
-  console.log('monthlyPayments.vatSettlements:', monthlyPayments?.vatSettlements);
-  console.log('cashFlowResult.result 마지막 vatSettle:', cashFlowResult?.result?.[cashFlowResult.result.length-1]?.vatSettle);
-  const totalVatSettle = (cashFlowResult?.result||[]).reduce((s,r) => s + (r?.vatSettle||0), 0);
-  console.log('cashFlowResult.result의 vatSettle 합:', totalVatSettle);
-  
-  // vatData도 체크 (App.js에서 부가세안분 시트 전달)
-  console.log('costData.vatSettle:', costData?.vatSettle);
-  console.log('costData keys:', costData ? Object.keys(costData) : 'null');
-  
   // ─── (a) PF 금액 ───
   const pfAmount = useMemo(() => {
     const tranches = financeData?.ltvCalc?.tranches || [];
     return tranches.reduce((s, t) => s + (parseFloat(t.savedAmt||0)||0), 0);
   }, [financeData]);
 
-  // ─── (b) 분양금액: 상가포함 / 상가제외 ───
+  // ─── (b) 분양금액 (VAT 포함 — 전체매출합계) ───
   const saleWithStore = useMemo(() => {
     const s = salesData || {};
-    return (s.salesSumApt||0) + (s.salesSumOffi||0) + (s.salesSumStore||0) + (s.salesSumBal||0);
+    // 공급가 + VAT 전체 (전체매출합계)
+    return (s.salesSumApt||0)       + (s.salesSumAptVat||0)
+         + (s.salesSumOffi||0)      + (s.salesSumOffiVat||0)
+         + (s.salesSumStore||0)     + (s.salesSumStoreVat||0)
+         + (s.salesSumBal||0)
+         + (s.salesSumPublic||0)
+         + (s.salesSumPublicBal||0)
+         + (s.salesSumPubfac||0)    + (s.salesSumPubfacVat||0);
   }, [salesData]);
 
   const saleNoStore = useMemo(() => {
     const s = salesData || {};
-    return (s.salesSumApt||0) + (s.salesSumOffi||0) + (s.salesSumBal||0);
+    // 상가 제외 (공동주택 + 오피스텔 + 발코니 + 공공 관련)
+    return (s.salesSumApt||0)       + (s.salesSumAptVat||0)
+         + (s.salesSumOffi||0)      + (s.salesSumOffiVat||0)
+         + (s.salesSumBal||0)
+         + (s.salesSumPublic||0)
+         + (s.salesSumPublicBal||0)
+         + (s.salesSumPubfac||0)    + (s.salesSumPubfacVat||0);
   }, [salesData]);
 
   // ─── 재원조달별 집계 ───
   const fundsSum = useMemo(() => calcFundTotals(monthlyPayments, cashFlowResult), [monthlyPayments, cashFlowResult]);
 
-  const cost1 = fundsSum.pf;                          // ① 필수사업비
-  const cost2 = fundsSum.sale;                        // ② 분양 연동 지출
-  const cost3 = pfAmount;                             // ③ PF 상환
-  const cost4 = collateralCost;                       // ④ 담보대출비용 (수동)
-  const cost5 = calcLandLastMonth(monthlyPayments);   // ⑤ 토지 잔금
-  const cost6 = fundsSum.equity;                      // ⑥ Equity
-  const cost7 = fundsSum.loan;                        // 대여금 (있을 때)
+  const cost1 = fundsSum.pf;
+  const cost2 = fundsSum.sale;
+  const cost3 = pfAmount;
+  const cost4 = collateralCost;
+  const cost5 = calcLandLastMonth(monthlyPayments);
+  const cost6 = fundsSum.equity;
+  const cost7 = fundsSum.loan;
+
+  // ─── 부가세 납부/환급 (실제 수치) ───
+  const vatSettle = useMemo(() => {
+    return (cashFlowResult?.result || []).reduce((s, r) => s + (r?.vatSettle || 0), 0);
+  }, [cashFlowResult]);
 
   // ─── 시나리오 계산 ───
   const calcScenario = (saleMax) => {
-    // 해당 단계까지 달성에 필요한 분양률
-    // 누적 지출 - (PF + 담보대출) = 분양으로 커버해야 할 금액
-    // 분양률 = (필요 분양수입) / 분양최대금액 × 100
     const calcRate = (cumCost) => {
       const needSale = cumCost - pfAmount - collateralLoan;
       if (needSale <= 0) return 0;
@@ -153,22 +143,21 @@ export default function Sensitivity({
       return (needSale / saleMax) * 100;
     };
 
-    // 순차 누적
-    const cum1 = cost1;
-    const cum2 = cum1 + cost2;
-    const cum3 = cum2 + cost3;
-    const cum4 = cum3 + cost4;
-    const cum5 = cum4 + cost5;
-    const cum6 = cum5 + cost6;
+    // 계단식 누적
+    const cum1 = cost1;                        // ①
+    const cum2 = cum1 + cost2;                 // ①+②
+    const cum3 = cum2 + cost3;                 // ①+②+③
+    const cum4 = cum3 + cost4;                 // +④
+    const cum5 = cum4 + cost5;                 // +⑤
+    const cum6 = cum5 + cost6;                 // +⑥
 
-    // 각 단계의 분양률
     return {
-      step1: calcRate(cum1),    // ①까지
-      step2: calcRate(cum2),    // ②까지
-      step3: calcRate(cum3),    // ③까지 (PF 상환)
-      step4: calcRate(cum4),    // ④까지
-      step5: calcRate(cum5),    // ⑤까지
-      step6: calcRate(cum6),    // ⑥까지
+      step1: calcRate(cum1),
+      step2: calcRate(cum2),
+      step3: calcRate(cum3),
+      step4: calcRate(cum4),
+      step5: calcRate(cum5),
+      step6: calcRate(cum6),
       totalCost: cum6,
     };
   };
@@ -178,71 +167,54 @@ export default function Sensitivity({
 
   // ─── 표 렌더링 ───
   const renderTable = (scenario, saleMax, title) => {
-    // 컬럼 결정: 값 있는 것만
+    // 컬럼 자동 생성 (값 있는 것만)
     const cols = [];
-    cols.push({ key:'amt', label:'금액', rate:null });
-
-    // F: ②까지 (항상)
-    cols.push({ key:'F', label:'F', rate:scenario.step2, subLabel:'분양불공사비 지급' });
-
-    // G: ③까지 (항상) ⭐
-    cols.push({ key:'G', label:'G', rate:scenario.step3, subLabel:'PF 상환 완료', highlight:true });
-
-    // H: ④까지 (담보대출비용 있을 때만)
+    cols.push({ key:'amt', label:'금액', rate:null, subLabel:'' });
+    cols.push({ key:'E', label:'E', rate:scenario.step1, subLabel:'필수사업비 커버' });
+    cols.push({ key:'F', label:'F', rate:scenario.step2, subLabel:'+ 분양연동 사업비' });
+    cols.push({ key:'G', label:'G', rate:scenario.step3, subLabel:'+ PF 대출상환', highlight:true });
     if (cost4 > 0) {
-      cols.push({ key:'H', label:'H', rate:scenario.step4, subLabel:'담보대출비용' });
+      cols.push({ key:'H', label:'H', rate:scenario.step4, subLabel:'+ 담보대출비용' });
     }
-
-    // I: ⑤까지 (토지잔금 있을 때만)
     if (cost5 > 0) {
-      cols.push({ key:'I', label:'I', rate:scenario.step5, subLabel:'토지 잔금' });
+      cols.push({ key:'I', label:'I', rate:scenario.step5, subLabel:'+ 토지 잔금' });
     }
-
-    // J: ⑥까지 (항상)
-    cols.push({ key:'J', label:'J', rate:scenario.step6, subLabel:'Equity 회수' });
-
-    // L: 현재 100%
+    cols.push({ key:'J', label:'J', rate:scenario.step6, subLabel:'+ Equity 회수' });
     cols.push({ key:'L', label:'L', rate:100.0, subLabel:'현재 계획' });
 
-    // 각 컬럼의 분양률 → 분양수입 → 총가용
-    const getColData = (col) => {
-      const rate = col.rate === null ? null : col.rate;
-      const saleIn = rate === null ? null : saleMax * (rate/100);
-      return { rate, saleIn };
+    // 각 컬럼의 분양수입과 총가용금액
+    const colSaleIn = cols.map(c => {
+      if (c.key === 'amt') return saleMax;
+      return saleMax * (c.rate/100);
+    });
+    const colD = colSaleIn.map(s => pfAmount + s + collateralLoan);
+
+    // step 인덱스 매핑
+    const colStepMap = { amt:99, E:1, F:2, G:3, H:4, I:5, J:6, L:99 };
+
+    // 특정 지출순위가 해당 컬럼에 지급되는가?
+    const shouldPay = (stepIdx, colKey) => {
+      if (colKey === 'amt') return true;
+      return colStepMap[colKey] >= stepIdx;
     };
 
-    const colData = cols.map(getColData);
-    const dVals = colData.map((d, i) => {
-      if (cols[i].key === 'amt') return pfAmount + saleMax + collateralLoan; // 기준 금액
-      return pfAmount + d.saleIn + collateralLoan;
-    });
-
-    // 각 행의 값: 지출순위별 "해당 컬럼까지 지급되었는가?"
-    // 금액 컬럼은 항상 전체 금액
     const rowVal = (stepIdx, amount) => {
-      return cols.map((c, i) => {
-        if (c.key === 'amt') return amount;
-        // 해당 컬럼의 단계 인덱스
-        const colStepMap = { F:2, G:3, H:4, I:5, J:6, L:7 };
-        const colStep = colStepMap[c.key] || 99;
-        // colStep >= stepIdx 이면 지급됨
-        return colStep >= stepIdx ? amount : 0;
-      });
+      return cols.map(c => shouldPay(stepIdx, c.key) ? amount : 0);
     };
 
     // 각 행 데이터
     const rows = [];
-    rows.push({ type:'section', label:'자금 유입' });
+    rows.push({ type:'section', label:'■ 자금 유입' });
     rows.push({ type:'data', label:'(a) PF 금액', values: cols.map(() => pfAmount) });
-    rows.push({ type:'data', label:'(b) 분양금액', values: cols.map((c, i) => c.key === 'amt' ? saleMax : colData[i].saleIn) });
+    rows.push({ type:'data', label:'(b) 분양금액', values: colSaleIn });
     if (collateralLoan > 0) {
       rows.push({ type:'data', label:'(c) 미분양 담보대출', values: cols.map(() => collateralLoan) });
     }
-    rows.push({ type:'subtotal', label:'(d) 총 가용 금액', values: dVals });
-    rows.push({ type:'section', label:'지출 순위 (자금 지급 순서)' });
-    rows.push({ type:'data', label:'① 필수사업비', values: rowVal(1, cost1) });
+    rows.push({ type:'subtotal', label:'(d) 총 가용 금액', values: colD });
+    rows.push({ type:'section', label:'■ 지출 순위 (자금 지급 순서)' });
+    rows.push({ type:'data', label:'① 필수사업비', values: rowVal(1, cost1), note:'🏗️ 시공사 EXIT' });
     rows.push({ type:'data', label:'② 분양 연동 지출 사업비', values: rowVal(2, cost2) });
-    rows.push({ type:'data', label:'③ PF 대출상환', values: rowVal(3, cost3), note:'금융기관/시공사 EXIT', highlight:true });
+    rows.push({ type:'data', label:'③ PF 대출상환', values: rowVal(3, cost3), note:'🏦 금융기관 EXIT', highlight:true });
     if (cost4 > 0) {
       rows.push({ type:'data', label:'④ 담보대출비용', values: rowVal(4, cost4) });
     }
@@ -251,31 +223,30 @@ export default function Sensitivity({
     }
     rows.push({ type:'data', label:'⑥ 시행사 Equity 지급', values: rowVal(6, cost6), note:'Equity 회수' });
 
-    // ⑦ 시행이익: L 컬럼에서만 (d - 누적지출)
-    const profitAtL = dVals[dVals.length-1] - cost1 - cost2 - cost3 - cost4 - cost5 - cost6;
+    // ⑦ 시행이익 (L 컬럼에서만) = (d) - 모든 지출
+    const profitAtL = colD[colD.length-1] - cost1 - cost2 - cost3 - cost4 - cost5 - cost6;
     rows.push({
       type:'data',
       label:'⑦ 시행이익 지급',
       values: cols.map(c => c.key === 'L' ? profitAtL : null),
-      note:'시행이익 회수',
+      note: profitAtL >= 0 ? '시행이익 회수' : '시행손실',
       profit:true,
     });
 
     // ─── 스타일 ───
     const td = { padding:'5px 8px', fontSize:'11px', color:'#111', borderBottom:'1px solid #e8e8e8', background:'white', textAlign:'right', whiteSpace:'nowrap' };
     const tdL = { ...td, textAlign:'left' };
-    const tdC = { ...td, textAlign:'center' };
     const th = { background:'#f0f0f0', color:'#111', padding:'5px 8px', fontSize:'11px', fontWeight:'bold', borderTop:'2px solid #555', borderBottom:'2px solid #555', textAlign:'center', whiteSpace:'nowrap' };
     const thL = { ...th, textAlign:'left' };
     const subTh = { ...th, background:'#f8f8f8', fontSize:'10px', fontWeight:'normal', borderTop:'none', paddingTop:'3px', paddingBottom:'5px' };
-    const sectionRow = { ...tdL, background:'#eaeaea', fontWeight:'bold', fontSize:'10px', color:'#555', padding:'4px 8px' };
+    const sectionRow = { ...tdL, background:'#eaeaea', fontWeight:'bold', fontSize:'11px', color:'#333', padding:'5px 8px' };
     const subtotalRow = { ...td, background:'#e8e8e8', fontWeight:'bold' };
     const subtotalRowL = { ...subtotalRow, textAlign:'left' };
     const highlightCol = { 
-      background: '#fff3cd',
-      WebkitPrintColorAdjust: 'exact',
-      printColorAdjust: 'exact',
-    }; // G 컬럼 강조용 (노란 배경)
+      background:'#fff3cd',
+      WebkitPrintColorAdjust:'exact',
+      printColorAdjust:'exact',
+    };
     const rateRow = { ...td, background:'#d5d5d5', fontWeight:'bold', borderTop:'2px solid #333', borderBottom:'2px solid #333' };
     const rateRowL = { ...rateRow, textAlign:'left' };
 
@@ -289,18 +260,27 @@ export default function Sensitivity({
             <tr>
               <th style={thL} rowSpan={2}>구분</th>
               {cols.map(c => (
-                <th key={c.key} style={{ ...th, ...(c.highlight ? highlightCol : {}) }}>
-                  {c.label === '금액' ? '금액' : `${c.label}`}
+                <th key={c.key} style={c.highlight ? { ...th, ...highlightCol } : th}>
+                  {c.label}
                 </th>
               ))}
               <th style={thL} rowSpan={2}>비고</th>
             </tr>
             <tr>
               {cols.map(c => (
-                <th key={c.key+'-sub'} style={{ ...subTh, ...(c.highlight ? highlightCol : {}) }}>
+                <th key={c.key+'-sub'} style={c.highlight ? { ...subTh, ...highlightCol } : subTh}>
                   {c.key === 'amt' ? '' : fmtPct(c.rate)}
                 </th>
               ))}
+            </tr>
+            <tr>
+              <th style={{ ...thL, background:'#fafafa', fontSize:'9px', fontWeight:'normal', color:'#666', borderTop:'none', borderBottom:'1px solid #ccc' }}></th>
+              {cols.map(c => (
+                <th key={c.key+'-desc'} style={{ ...subTh, background: c.highlight?'#fff8e1':'#fafafa', fontSize:'9px', fontWeight:'normal', color:'#666', borderTop:'none', borderBottom:'1px solid #ccc', WebkitPrintColorAdjust:'exact', printColorAdjust:'exact' }}>
+                  {c.subLabel}
+                </th>
+              ))}
+              <th style={{ ...thL, background:'#fafafa', borderTop:'none', borderBottom:'1px solid #ccc' }}></th>
             </tr>
           </thead>
           <tbody>
@@ -317,7 +297,7 @@ export default function Sensitivity({
                   <tr key={ri}>
                     <td style={subtotalRowL}>{row.label} = (a)+(b){collateralLoan>0?'+(c)':''}</td>
                     {row.values.map((v, i) => (
-                      <td key={i} style={{ ...subtotalRow, ...(cols[i].highlight ? highlightCol : {}) }}>
+                      <td key={i} style={cols[i].highlight ? { ...subtotalRow, ...highlightCol } : subtotalRow}>
                         {fmtUk(v)}
                       </td>
                     ))}
@@ -334,15 +314,17 @@ export default function Sensitivity({
                   {row.values.map((v, i) => {
                     const isNull = v === null;
                     const isProfit = row.profit && !isNull;
-                    const color = isProfit ? (v < 0 ? '#c0392b' : '#111') : (row.highlight ? '#b7791f' : '#111');
+                    const color = isProfit ? (v < 0 ? '#c0392b' : '#1e8449') : (row.highlight ? '#b7791f' : '#111');
                     const fontWeight = row.highlight || isProfit ? 'bold' : 'normal';
+                    const cellStyle = { ...td, color, fontWeight };
+                    if (cols[i].highlight) Object.assign(cellStyle, highlightCol);
                     return (
-                      <td key={i} style={{ ...td, color, fontWeight, ...(cols[i].highlight ? highlightCol : {}) }}>
+                      <td key={i} style={cellStyle}>
                         {isNull ? '' : fmtUk(v)}
                       </td>
                     );
                   })}
-                  <td style={{ ...tdL, color:'#888', fontSize:'10px' }}>{row.note||''}</td>
+                  <td style={{ ...tdL, color: row.highlight?'#b7791f':'#666', fontSize:'10px', fontWeight: row.highlight?'bold':'normal' }}>{row.note||''}</td>
                 </tr>
               );
             })}
@@ -350,7 +332,7 @@ export default function Sensitivity({
             <tr>
               <td style={rateRowL}>지출순위별 상환 가능 분양률</td>
               {cols.map((c, i) => (
-                <td key={i} style={{ ...rateRow, ...(c.highlight ? highlightCol : {}) }}>
+                <td key={i} style={c.highlight ? { ...rateRow, ...highlightCol } : rateRow}>
                   {c.key === 'amt' ? '—' : fmtPct(c.rate)}
                 </td>
               ))}
@@ -358,15 +340,6 @@ export default function Sensitivity({
             </tr>
           </tbody>
         </table>
-
-        {/* 하단 해석 (컬럼 레이블 설명) */}
-        <div style={{ marginTop:'8px', padding:'8px 12px', background:'#f9f9f9', borderRadius:'4px', fontSize:'10px', color:'#555' }}>
-          {cols.filter(c => c.key !== 'amt').map((c, i) => (
-            <span key={i} style={{ marginRight:'16px' }}>
-              <strong style={{ color: c.highlight?'#b7791f':'#111' }}>{c.label}:</strong> {c.subLabel}
-            </span>
-          ))}
-        </div>
       </div>
     );
   };
@@ -404,9 +377,25 @@ export default function Sensitivity({
           <div style={{ marginBottom:'16px' }}>
             <h3 style={{ margin:0, fontSize:'16px', color:'#111' }}>■ 분양률 민감도 분석</h3>
             <div style={{ fontSize:'11px', color:'#888', marginTop:'3px' }}>
-              은행 관점: 지급 우선순위별로 필요한 분양률 분석 | 단위: 천원 → 억원 환산
+              은행 관점: 지급 우선순위별로 필요한 분양률 분석 | 단위: 천원 → 억원 환산 | 금액 VAT 포함 기준
             </div>
           </div>
+
+          {/* 🔔 부가세 정보 박스 */}
+          {vatSettle !== 0 && (
+            <div style={{ 
+              marginBottom:'14px', padding:'10px 14px', 
+              background: vatSettle > 0 ? '#fdedec' : '#eafaf1',
+              border: `1px solid ${vatSettle > 0 ? '#f1948a' : '#a9dfbf'}`,
+              borderRadius:'6px', fontSize:'12px', color: vatSettle > 0 ? '#922b21' : '#186a3b',
+            }}>
+              <strong>💰 {vatSettle > 0 ? '부가세 납부' : '부가세 환급'}:</strong>
+              &nbsp;&nbsp;{fmtUk(Math.abs(vatSettle))}
+              <span style={{ marginLeft:'10px', fontSize:'10px', color:'#555' }}>
+                ({vatSettle > 0 ? '시행이익에서 추가 차감될 금액' : '시행이익에 추가될 금액'})
+              </span>
+            </div>
+          )}
 
           {/* 미분양 담보대출 입력 */}
           <div style={{ marginBottom:'16px', padding:'10px', background:'#f9f9f9', border:'1px solid #ddd', borderRadius:'6px' }}>
@@ -427,26 +416,32 @@ export default function Sensitivity({
 
           {(!monthlyPayments || (monthlyPayments.months||[]).length === 0) && (
             <div style={{ padding:'30px', textAlign:'center', color:'#aaa', border:'2px dashed #ddd', borderRadius:'8px', marginBottom:'16px' }}>
-              💡 사업비 탭을 먼저 방문하면 데이터가 자동으로 연동됩니다.
+              💡 사업비 탭과 금융탭을 먼저 방문하면 데이터가 자동으로 연동됩니다.
             </div>
           )}
 
-          {/* 요약 정보 */}
-          <div style={{ marginBottom:'16px', padding:'10px', background:'#fff3cd', border:'1px solid #f0d27e', borderRadius:'6px', fontSize:'12px', color:'#856404' }}>
+          {/* 핵심 지표 요약 */}
+          <div style={{ marginBottom:'16px', padding:'12px 14px', background:'#fff3cd', border:'1px solid #f0d27e', borderRadius:'6px', fontSize:'12px', color:'#856404' }}>
             <strong>🏦 은행 EXIT 분양률 (G):</strong>
-            &nbsp;&nbsp;상가 포함: <strong>{fmtPct(scenarioA.step3)}</strong>
-            &nbsp;&nbsp;|&nbsp;&nbsp;상가 제외: <strong>{fmtPct(scenarioB.step3)}</strong>
+            &nbsp;&nbsp;상가 포함: <strong style={{ fontSize:'14px' }}>{fmtPct(scenarioA.step3)}</strong>
+            &nbsp;&nbsp;|&nbsp;&nbsp;상가 제외: <strong style={{ fontSize:'14px' }}>{fmtPct(scenarioB.step3)}</strong>
+            <div style={{ fontSize:'10px', color:'#665', marginTop:'3px' }}>
+              분양률이 위 수치에 도달해야 PF 대출 상환 가능
+            </div>
           </div>
 
           {renderTable(scenarioA, saleWithStore, '시나리오 A: 상가 포함 분양률 기준')}
           {renderTable(scenarioB, saleNoStore,   '시나리오 B: 상가 제외 분양률 기준')}
 
           <div style={{ marginTop:'16px', padding:'10px', background:'#f5f5f5', border:'1px solid #ccc', borderRadius:'6px', fontSize:'11px', color:'#555' }}>
-            <div><strong>※ 분양률 해석 (은행 관점)</strong></div>
-            <div style={{ marginTop:'4px' }}>• <strong>F:</strong> 분양불공사비 지급 시작 분양률</div>
-            <div>• <strong>G:</strong> ⭐ PF 상환 완료 분양률 (금융기관 EXIT)</div>
-            <div>• <strong>J:</strong> Equity까지 회수 가능 분양률 (시행사 원금 회수)</div>
-            <div>• <strong>L:</strong> 현재 100% 분양 계획 기준 (최종 상태)</div>
+            <div><strong>※ 컬럼 설명</strong></div>
+            <div style={{ marginTop:'4px' }}>• <strong>E:</strong> 필수사업비 커버되는 분양률</div>
+            <div>• <strong>F:</strong> + 분양연동 사업비 (시공사 EXIT)</div>
+            <div>• <strong>G:</strong> ⭐ + PF 대출상환 (금융기관 EXIT)</div>
+            {cost4 > 0 && <div>• <strong>H:</strong> + 담보대출비용</div>}
+            {cost5 > 0 && <div>• <strong>I:</strong> + 토지 잔금</div>}
+            <div>• <strong>J:</strong> + Equity 회수 (시행사 원금)</div>
+            <div>• <strong>L:</strong> 100% 분양 기준 (현재 계획) — 이 컬럼에서 시행이익/손실 확인</div>
           </div>
         </div>
       )}
