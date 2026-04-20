@@ -367,6 +367,205 @@ export default function Sensitivity({
     );
   };
 
+  // ─── 인쇄 ───
+  const handlePrint = () => {
+    const styleId = 'sensitivity-print-style';
+    if (!document.getElementById(styleId)) {
+      const style = document.createElement('style');
+      style.id = styleId;
+      style.innerHTML = `
+        @media print {
+          body > * { display: none !important; }
+          #sensitivity-print-area { display: block !important; }
+          @page { margin: 10mm; size: A4; }
+        }
+        #sensitivity-print-area { display: none; }
+      `;
+      document.head.appendChild(style);
+    }
+
+    const existing = document.getElementById('sensitivity-print-area');
+    if (existing) existing.remove();
+
+    const bg = '-webkit-print-color-adjust:exact;print-color-adjust:exact;';
+    const fontSize = '10px';
+    const cellPad = '4px 6px';
+    
+    // 스타일
+    const thS  = `background:#f0f0f0;color:#111;padding:${cellPad};font-size:${fontSize};font-weight:bold;border-top:2px solid #555;border-bottom:2px solid #555;text-align:center;white-space:nowrap;${bg}`;
+    const thSL = thS + 'text-align:left;';
+    const subThS = `background:#f8f8f8;color:#111;padding:3px 6px 5px;font-size:9px;font-weight:normal;border-bottom:1px solid #bbb;text-align:center;white-space:nowrap;${bg}`;
+    const descThS = `background:#fafafa;color:#666;padding:2px 6px;font-size:8px;font-weight:normal;border-bottom:1px solid #ccc;text-align:center;white-space:nowrap;${bg}`;
+    const tdS  = `padding:${cellPad};font-size:${fontSize};color:#111;border-bottom:1px solid #e8e8e8;background:white;text-align:right;white-space:nowrap;`;
+    const tdSL = tdS + 'text-align:left;';
+    const sectionS = `padding:4px 8px;font-size:10px;font-weight:bold;color:#333;background:#eaeaea;text-align:left;${bg}`;
+    const subtotalS = `padding:${cellPad};font-size:${fontSize};font-weight:bold;color:#111;background:#e8e8e8;text-align:right;white-space:nowrap;${bg}`;
+    const subtotalSL = subtotalS + 'text-align:left;';
+    const rateS = `padding:${cellPad};font-size:${fontSize};font-weight:bold;color:#111;background:#d5d5d5;border-top:2px solid #333;border-bottom:2px solid #333;text-align:right;white-space:nowrap;${bg}`;
+    const rateSL = rateS + 'text-align:left;';
+    const highlightBg = `background:#e8e8e8;${bg}`;  // G 컬럼 흑백 강조
+
+    // 테이블 렌더링 함수 (인쇄용)
+    const buildTable = (scenario, saleMax, title) => {
+      const cols = [];
+      cols.push({ key:'amt', label:'금액', rate:null, subLabel:'' });
+      cols.push({ key:'E', label:'E', rate:scenario.step1, subLabel:'필수사업비 커버' });
+      cols.push({ key:'F', label:'F', rate:scenario.step2, subLabel:'+ 분양연동 사업비' });
+      cols.push({ key:'G', label:'G', rate:scenario.step3, subLabel:'+ PF 대출상환', highlight:true });
+      if (cost4 > 0) cols.push({ key:'H', label:'H', rate:scenario.step4, subLabel:'+ 담보대출비용' });
+      if (cost5 > 0) cols.push({ key:'I', label:'I', rate:scenario.step5, subLabel:'+ 토지 잔금' });
+      cols.push({ key:'J', label:'J', rate:scenario.step6, subLabel:'+ Equity 회수' });
+      cols.push({ key:'L', label:'L', rate:100.0, subLabel:'현재 계획' });
+
+      const colSaleIn = cols.map(c => c.key === 'amt' ? saleMax : saleMax * (c.rate/100));
+      const colD = colSaleIn.map(s => pfAmount + s + collateralLoan);
+      const colStepMap = { amt:99, E:1, F:2, G:3, H:4, I:5, J:6, L:99 };
+      const shouldPay = (stepIdx, colKey) => colKey === 'amt' ? true : colStepMap[colKey] >= stepIdx;
+      const rowVal = (stepIdx, amount) => cols.map(c => shouldPay(stepIdx, c.key) ? amount : 0);
+
+      const shortageF = Math.max(0, (cost1 + cost2 - pfAmount - collateralLoan) - saleMax);
+      const shortageG = Math.max(0, (cost1 + cost2 + cost3 - pfAmount - collateralLoan) - saleMax);
+      const sigongExitNote = shortageF > 0 ? `시공사 EXIT 불가 (${fmtUk(shortageF)} 부족)` : '시공사 EXIT';
+      const pfExitNote = shortageG > 0 ? `금융기관 EXIT 불가 (${fmtUk(shortageG)} 부족)` : '금융기관 EXIT';
+
+      const profitBeforeVat = colD[colD.length-1] - cost1 - cost2 - cost3 - cost4 - cost5 - cost6;
+      const profitAtL = profitBeforeVat - vatSettle;
+      const vatNote = vatSettle >= 0 ? `부가세 납부 ${fmtUk(vatSettle)} 반영` : `부가세 환급 ${fmtUk(Math.abs(vatSettle))} 반영`;
+      const profitNote = profitAtL >= 0 ? `시행이익 회수 (${vatNote})` : `시행손실 (${vatNote})`;
+
+      const hCellStyle = (i, baseStyle) => cols[i].highlight ? baseStyle + highlightBg : baseStyle;
+      const noteStyle = (exitFail, isProfit, profitAmt) => {
+        const color = exitFail ? '#c0392b' : (isProfit && profitAmt < 0 ? '#c0392b' : '#555');
+        const weight = exitFail ? 'bold' : 'normal';
+        return `padding:${cellPad};font-size:9px;color:${color};font-weight:${weight};border-bottom:1px solid #e8e8e8;background:white;text-align:left;`;
+      };
+
+      let rowsHtml = '';
+      
+      // 섹션: 자금 유입
+      rowsHtml += `<tr><td colspan="${cols.length+2}" style="${sectionS}">■ 자금 유입</td></tr>`;
+      rowsHtml += `<tr><td style="${tdSL};padding-left:16px;">(a) PF 금액</td>${cols.map((c,i) => `<td style="${hCellStyle(i, tdS)}">${fmtUk(pfAmount)}</td>`).join('')}<td style="${tdSL}"></td></tr>`;
+      rowsHtml += `<tr><td style="${tdSL};padding-left:16px;">(b) 분양금액</td>${colSaleIn.map((v,i) => `<td style="${hCellStyle(i, tdS)}">${fmtUk(v)}</td>`).join('')}<td style="${tdSL}"></td></tr>`;
+      if (collateralLoan > 0) {
+        rowsHtml += `<tr><td style="${tdSL};padding-left:16px;">(c) 미분양 담보대출</td>${cols.map((c,i) => `<td style="${hCellStyle(i, tdS)}">${fmtUk(collateralLoan)}</td>`).join('')}<td style="${tdSL}"></td></tr>`;
+      }
+      rowsHtml += `<tr><td style="${subtotalSL}">(d) 총 가용 금액 = (a)+(b)${collateralLoan>0?'+(c)':''}</td>${colD.map((v,i) => `<td style="${hCellStyle(i, subtotalS)}">${fmtUk(v)}</td>`).join('')}<td style="${subtotalS}"></td></tr>`;
+      
+      // 섹션: 지출 순위
+      rowsHtml += `<tr><td colspan="${cols.length+2}" style="${sectionS}">■ 지출 순위 (자금 지급 순서)</td></tr>`;
+      
+      // ① 필수사업비
+      const r1vals = rowVal(1, cost1);
+      rowsHtml += `<tr><td style="${tdSL};padding-left:16px;">① 필수사업비</td>${r1vals.map((v,i) => `<td style="${hCellStyle(i, tdS)}">${fmtUk(v)}</td>`).join('')}<td style="${noteStyle(shortageF>0, false)}">${sigongExitNote}</td></tr>`;
+      
+      // ② 분양연동
+      const r2vals = rowVal(2, cost2);
+      rowsHtml += `<tr><td style="${tdSL};padding-left:16px;">② 분양 연동 지출 사업비</td>${r2vals.map((v,i) => `<td style="${hCellStyle(i, tdS)}">${fmtUk(v)}</td>`).join('')}<td style="${noteStyle(false, false)}"></td></tr>`;
+      
+      // ③ PF 대출상환 (highlight)
+      const r3vals = rowVal(3, cost3);
+      const r3CellS = `padding:${cellPad};font-size:${fontSize};color:${shortageG>0?'#c0392b':'#b7791f'};font-weight:bold;border-bottom:1px solid #e8e8e8;background:white;text-align:right;white-space:nowrap;`;
+      rowsHtml += `<tr><td style="${tdSL};padding-left:16px;font-weight:bold;color:${shortageG>0?'#c0392b':'#b7791f'};">③ PF 대출상환</td>${r3vals.map((v,i) => `<td style="${cols[i].highlight ? r3CellS + highlightBg : r3CellS}">${fmtUk(v)}</td>`).join('')}<td style="${noteStyle(shortageG>0, false)}">${pfExitNote}</td></tr>`;
+      
+      // ④ 담보대출비용
+      if (cost4 > 0) {
+        const r4vals = rowVal(4, cost4);
+        rowsHtml += `<tr><td style="${tdSL};padding-left:16px;">④ 담보대출비용</td>${r4vals.map((v,i) => `<td style="${hCellStyle(i, tdS)}">${fmtUk(v)}</td>`).join('')}<td style="${noteStyle(false, false)}"></td></tr>`;
+      }
+      // ⑤ 토지 잔금
+      if (cost5 > 0) {
+        const r5vals = rowVal(5, cost5);
+        rowsHtml += `<tr><td style="${tdSL};padding-left:16px;">⑤ 토지 잔금 지급</td>${r5vals.map((v,i) => `<td style="${hCellStyle(i, tdS)}">${fmtUk(v)}</td>`).join('')}<td style="${noteStyle(false, false)}">토지 잔금 회수</td></tr>`;
+      }
+      // ⑥ Equity
+      const r6vals = rowVal(6, cost6);
+      rowsHtml += `<tr><td style="${tdSL};padding-left:16px;">⑥ 시행사 Equity 지급</td>${r6vals.map((v,i) => `<td style="${hCellStyle(i, tdS)}">${fmtUk(v)}</td>`).join('')}<td style="${noteStyle(false, false)}">Equity 회수</td></tr>`;
+      
+      // ⑦ 시행이익
+      const r7CellS = `padding:${cellPad};font-size:${fontSize};font-weight:bold;color:${profitAtL<0?'#c0392b':'#1e8449'};border-bottom:1px solid #e8e8e8;background:white;text-align:right;white-space:nowrap;`;
+      rowsHtml += `<tr><td style="${tdSL};padding-left:16px;">⑦ 시행이익 지급</td>${cols.map((c,i) => {
+        const v = c.key === 'L' ? profitAtL : null;
+        return `<td style="${c.highlight ? r7CellS + highlightBg : r7CellS}">${v === null ? '' : fmtUk(v)}</td>`;
+      }).join('')}<td style="${noteStyle(false, true, profitAtL)}">${profitNote}</td></tr>`;
+      
+      // 상환 가능 분양률
+      rowsHtml += `<tr><td style="${rateSL}">지출순위별 상환 가능 분양률</td>${cols.map((c,i) => `<td style="${c.highlight ? rateS + highlightBg : rateS}">${c.key === 'amt' ? '—' : fmtPct(c.rate)}</td>`).join('')}<td style="${rateS}"></td></tr>`;
+
+      return `
+        <div style="margin-bottom:20px;">
+          <h4 style="font-size:12px;font-weight:bold;color:#111;border-bottom:2px solid #333;padding-bottom:3px;margin:0 0 8px;">■ ${title}</h4>
+          <table style="width:100%;border-collapse:collapse;font-family:'Malgun Gothic',sans-serif;">
+            <thead>
+              <tr>
+                <th style="${thSL}" rowspan="3">구분</th>
+                ${cols.map(c => `<th style="${cols.indexOf(c) >= 0 && c.highlight ? thS + highlightBg : thS}">${c.label}</th>`).join('')}
+                <th style="${thSL}" rowspan="3">비고</th>
+              </tr>
+              <tr>
+                ${cols.map(c => `<th style="${c.highlight ? subThS + highlightBg : subThS}">${c.key === 'amt' ? '' : fmtPct(c.rate)}</th>`).join('')}
+              </tr>
+              <tr>
+                ${cols.map(c => `<th style="${c.highlight ? descThS + highlightBg : descThS}">${c.subLabel}</th>`).join('')}
+              </tr>
+            </thead>
+            <tbody>${rowsHtml}</tbody>
+          </table>
+        </div>
+      `;
+    };
+
+    // 핵심 지표
+    const gA = scenarioA.step3;
+    const gB = scenarioB.step3;
+
+    const div = document.createElement('div');
+    div.id = 'sensitivity-print-area';
+    div.style.fontFamily = "'Malgun Gothic', sans-serif";
+    div.style.color = '#111';
+    div.innerHTML = `
+      <h2 style="font-size:16px;font-weight:bold;text-align:center;margin-bottom:4px;color:#111;">
+        부동산 PF 분양률 민감도 분석
+      </h2>
+      <div style="text-align:center;font-size:10px;color:#111;margin-bottom:14px;">
+        ${projectName} | ${new Date().toLocaleDateString('ko-KR')} | 단위: 억원 (VAT 포함)
+      </div>
+      
+      ${vatSettle !== 0 ? `
+        <div style="margin-bottom:10px;padding:6px 10px;background:#f0f0f0;border:1px solid #888;border-radius:3px;font-size:10px;color:#111;${bg}">
+          <strong>💰 ${vatSettle > 0 ? '부가세 납부' : '부가세 환급'}:</strong> ${fmtUk(Math.abs(vatSettle))}
+          <span style="margin-left:8px;color:#555;">(시행이익 계산 시 ${vatSettle > 0 ? '차감' : '가산'})</span>
+        </div>
+      ` : ''}
+
+      <div style="margin-bottom:14px;padding:8px 12px;background:#f0f0f0;border:2px solid #333;border-radius:3px;font-size:11px;color:#111;${bg}">
+        <strong>🏦 은행 EXIT 분양률 (G):</strong>
+        &nbsp;&nbsp;상가 포함: <strong style="font-size:12px;">${fmtPct(gA)}</strong>
+        &nbsp;&nbsp;|&nbsp;&nbsp;상가 제외: <strong style="font-size:12px;color:${gB>100?'#c0392b':'#111'};">${fmtPct(gB)}</strong>
+        ${gB > 100 ? '<span style="color:#c0392b;font-weight:bold;margin-left:6px;">⚠ 상가 제외 시 회수 불가</span>' : ''}
+        <div style="font-size:9px;color:#555;margin-top:2px;">분양률이 위 수치에 도달해야 PF 대출 상환 가능</div>
+      </div>
+      
+      ${buildTable(scenarioA, saleWithStore, '시나리오 A: 상가 포함 분양률 기준')}
+      ${buildTable(scenarioB, saleNoStore,   '시나리오 B: 상가 제외 분양률 기준')}
+      
+      <div style="margin-top:10px;padding:6px 10px;background:#f5f5f5;border:1px solid #ccc;border-radius:3px;font-size:9px;color:#555;">
+        <strong>※ 컬럼 설명</strong>&nbsp;&nbsp;
+        <strong>E:</strong> 필수사업비 커버 &nbsp;|&nbsp;
+        <strong>F:</strong> + 분양연동 사업비 (시공사 EXIT) &nbsp;|&nbsp;
+        <strong>G:</strong> ⭐ + PF 대출상환 (금융기관 EXIT) &nbsp;|&nbsp;
+        ${cost4 > 0 ? '<strong>H:</strong> + 담보대출비용 &nbsp;|&nbsp;' : ''}
+        ${cost5 > 0 ? '<strong>I:</strong> + 토지 잔금 &nbsp;|&nbsp;' : ''}
+        <strong>J:</strong> + Equity 회수 &nbsp;|&nbsp;
+        <strong>L:</strong> 100% 분양 (현재 계획)
+      </div>
+    `;
+    document.body.appendChild(div);
+    setTimeout(() => {
+      window.print();
+      setTimeout(() => { div.remove(); }, 1000);
+    }, 200);
+  };
+
   // ─── 메인 렌더링 ───
   return (
     <div>
@@ -397,11 +596,19 @@ export default function Sensitivity({
 
       {view === 'saleRate' && (
         <div>
-          <div style={{ marginBottom:'16px' }}>
-            <h3 style={{ margin:0, fontSize:'16px', color:'#111' }}>■ 분양률 민감도 분석</h3>
-            <div style={{ fontSize:'11px', color:'#888', marginTop:'3px' }}>
-              은행 관점: 지급 우선순위별로 필요한 분양률 분석 | 단위: 천원 → 억원 환산 | 금액 VAT 포함 기준
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'16px' }}>
+            <div>
+              <h3 style={{ margin:0, fontSize:'16px', color:'#111' }}>■ 분양률 민감도 분석</h3>
+              <div style={{ fontSize:'11px', color:'#888', marginTop:'3px' }}>
+                은행 관점: 지급 우선순위별로 필요한 분양률 분석 | 단위: 천원 → 억원 환산 | 금액 VAT 포함 기준
+              </div>
             </div>
+            <button 
+              onClick={handlePrint}
+              style={{ padding:'8px 18px', backgroundColor:'#2c3e50', color:'white', border:'none', borderRadius:'6px', cursor:'pointer', fontSize:'12px', fontWeight:'bold' }}
+            >
+              🖨 인쇄
+            </button>
           </div>
 
           {/* 🔔 부가세 정보 박스 */}
