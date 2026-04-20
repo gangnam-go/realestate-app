@@ -1622,7 +1622,10 @@ function CashFlowCalc({ salesData, monthlyPayments, financeData, onFinanceChange
 
     // 7-2. 원금 상환 (이자 차감 후 잔액 기준)
     // 가능 상환액: 최소유지잔액 초과분, 최대상환액 cap, 억단위 내림
-    const rawRepay     = Math.max(0, Math.min(saveAcctBal - minBal, maxRepay));
+    // ※ 선순위 완료 후에는 minBal 해제 (중/후순위 일괄상환을 위해 상환용계좌 전액 활용)
+    const seniorDone = balSenior <= 0;
+    const effectiveMinBal = seniorDone ? 0 : minBal;
+    const rawRepay     = Math.max(0, Math.min(saveAcctBal - effectiveMinBal, maxRepay));
     const flooredRepay = floorUnit(rawRepay);
     const repayAvail   = flooredRepay >= minRepay ? flooredRepay : 0;
     let repayS=0, repayM=0, repayJ=0;
