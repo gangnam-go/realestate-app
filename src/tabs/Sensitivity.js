@@ -10,6 +10,18 @@ export default function Sensitivity({
   monthlyPayments,
   cashFlowResult,
 }) {
+  // 🔍 진단용 로그 (확인 후 삭제)
+  console.log('🔍 Sensitivity 데이터 구조:', {
+    projectName,
+    archData,
+    incomeData,
+    salesData,
+    costData,
+    financeData,
+    monthlyPayments,
+    cashFlowResult,
+  });
+  
   const [view, setView] = React.useState('saleRate');
 
   return (
