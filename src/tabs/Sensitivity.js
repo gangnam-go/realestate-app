@@ -619,8 +619,8 @@ export default function Sensitivity({
       
       <div style="margin-top:10px;padding:6px 10px;background:#f5f5f5;border:1px solid #ccc;border-radius:3px;font-size:9px;color:#555;">
         <strong>※ 컬럼 설명</strong>&nbsp;&nbsp;
-        <strong>E:</strong> 필수사업비 커버 &nbsp;|&nbsp;
-        <strong>F:</strong> + 분양연동 사업비 (시공사 EXIT) &nbsp;|&nbsp;
+        <strong>E:</strong> 필수사업비 커버 (시공사 EXIT) &nbsp;|&nbsp;
+        <strong>F:</strong> + 분양연동 사업비 &nbsp;|&nbsp;
         <strong>G:</strong> ⭐ + PF 대출상환 (금융기관 EXIT) &nbsp;|&nbsp;
         ${cost4 > 0 ? '<strong>H:</strong> + 담보대출비용 &nbsp;|&nbsp;' : ''}
         ${cost5 > 0 ? '<strong>I:</strong> + 토지 잔금 &nbsp;|&nbsp;' : ''}
