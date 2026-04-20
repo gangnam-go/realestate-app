@@ -1306,6 +1306,16 @@ function LTVModal({ onClose, salesData, incomeData, projectName, data, onChange 
 // 현금유출입 계산기
 // ─────────────────────────────────────────────
 function CashFlowCalc({ salesData, monthlyPayments, financeData, onFinanceChange, onCashFlowResult, projectName }) {
+  // 🔍 진단용 로그 (확인 후 삭제)
+  console.log('🔍 분양금배분 salesData 키 확인:', {
+    'salesData.alloc':         salesData?.alloc,
+    'salesData.allocOver':     salesData?.allocOver,
+    'salesData.allocUnder':    salesData?.allocUnder,
+    'salesData.allocPublic':   salesData?.allocPublic,
+    'salesData.allocBaseRate': salesData?.allocBaseRate,
+    'salesData.allocScenario': salesData?.allocScenario,
+    'salesData.baseRate':      salesData?.baseRate,
+  });
   const mp     = monthlyPayments || {};
   const months = mp.months || [];
   const n      = months.length;
