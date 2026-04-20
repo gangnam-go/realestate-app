@@ -212,9 +212,20 @@ export default function Sensitivity({
     }
     rows.push({ type:'subtotal', label:'(d) 총 가용 금액', values: colD });
     rows.push({ type:'section', label:'■ 지출 순위 (자금 지급 순서)' });
-    rows.push({ type:'data', label:'① 필수사업비', values: rowVal(1, cost1), note:'🏗️ 시공사 EXIT' });
+    // EXIT 가능 여부 + 부족금 계산 (분양최대 = saleMax 대비)
+    const shortageF = Math.max(0, (cost1 + cost2 - pfAmount - collateralLoan) - saleMax);
+    const shortageG = Math.max(0, (cost1 + cost2 + cost3 - pfAmount - collateralLoan) - saleMax);
+    
+    const sigongExitNote = shortageF > 0 
+      ? `🏗️ 시공사 EXIT 불가 (${fmtUk(shortageF)} 부족)`
+      : '🏗️ 시공사 EXIT';
+    const pfExitNote = shortageG > 0
+      ? `🏦 금융기관 EXIT 불가 (${fmtUk(shortageG)} 부족)`
+      : '🏦 금융기관 EXIT';
+    
+    rows.push({ type:'data', label:'① 필수사업비', values: rowVal(1, cost1), note: sigongExitNote, exitFail: shortageF > 0 });
     rows.push({ type:'data', label:'② 분양 연동 지출 사업비', values: rowVal(2, cost2) });
-    rows.push({ type:'data', label:'③ PF 대출상환', values: rowVal(3, cost3), note:'🏦 금융기관 EXIT', highlight:true });
+    rows.push({ type:'data', label:'③ PF 대출상환', values: rowVal(3, cost3), note: pfExitNote, highlight:true, exitFail: shortageG > 0 });
     if (cost4 > 0) {
       rows.push({ type:'data', label:'④ 담보대출비용', values: rowVal(4, cost4) });
     }
@@ -223,13 +234,20 @@ export default function Sensitivity({
     }
     rows.push({ type:'data', label:'⑥ 시행사 Equity 지급', values: rowVal(6, cost6), note:'Equity 회수' });
 
-    // ⑦ 시행이익 (L 컬럼에서만) = (d) - 모든 지출
-    const profitAtL = colD[colD.length-1] - cost1 - cost2 - cost3 - cost4 - cost5 - cost6;
+    // ⑦ 시행이익 (L 컬럼에서만) = (d) - 모든 지출 - 부가세 납부
+    // vatSettle > 0 이면 납부(차감), < 0 이면 환급(가산)
+    const profitBeforeVat = colD[colD.length-1] - cost1 - cost2 - cost3 - cost4 - cost5 - cost6;
+    const profitAtL = profitBeforeVat - vatSettle;
+    const vatNote = vatSettle >= 0
+      ? `부가세 납부 ${fmtUk(vatSettle)} 반영`
+      : `부가세 환급 ${fmtUk(Math.abs(vatSettle))} 반영`;
     rows.push({
       type:'data',
       label:'⑦ 시행이익 지급',
       values: cols.map(c => c.key === 'L' ? profitAtL : null),
-      note: profitAtL >= 0 ? '시행이익 회수' : '시행손실',
+      note: profitAtL >= 0 
+        ? `시행이익 회수 (${vatNote})` 
+        : `시행손실 (${vatNote})`,
       profit:true,
     });
 
@@ -324,7 +342,12 @@ export default function Sensitivity({
                       </td>
                     );
                   })}
-                  <td style={{ ...tdL, color: row.highlight?'#b7791f':'#666', fontSize:'10px', fontWeight: row.highlight?'bold':'normal' }}>{row.note||''}</td>
+                  <td style={{ 
+                    ...tdL, 
+                    color: row.exitFail ? '#c0392b' : (row.highlight?'#b7791f':'#666'), 
+                    fontSize:'10px', 
+                    fontWeight: (row.highlight || row.exitFail) ? 'bold' : 'normal' 
+                  }}>{row.note||''}</td>
                 </tr>
               );
             })}
