@@ -847,13 +847,12 @@ function LTVModal({ onClose, salesData, incomeData, projectName, data, onChange 
       <table style="width:100%;border-collapse:collapse;margin-bottom:14px;">
         <thead><tr>
           <th style="${thSL}">트랜치</th>
-          <th style="${thSC}width:70px;">비중 (%)</th>
+          <th style="${thS}">금액 (천원)</th>
           <th style="${thSC}width:70px;">금리 (%)</th>
           <th style="${thSL}">구성항목</th>
         </tr></thead>
         <tbody>
           ${tranchesPrint.map(t => {
-            const pct = totalAmtP > 0 ? (t.calc.amt/totalAmtP*100).toFixed(1) : '0.0';
             const rowsHTML = t.rows.map(r => {
               const c = collMapExt[r.use] || 0;
               const rowAmt = Math.round(c * (parseFloat(r.pct)||0) / 100);
@@ -861,8 +860,8 @@ function LTVModal({ onClose, salesData, incomeData, projectName, data, onChange 
             }).join('');
             return `
               <tr>
-                <td style="${subSL}">${t.name}<br><span style="font-weight:normal;font-size:10px;color:#555;">${fmtN(t.calc.amt)} 천원 ≈ ${fmtB(t.calc.amt)}</span></td>
-                <td style="${tdSC}font-weight:bold;">${pct}%</td>
+                <td style="${subSL}">${t.name}</td>
+                <td style="${tdS}font-weight:bold;">${fmtN(t.calc.amt)}<br><span style="font-size:9px;color:#555;font-weight:normal;">≈ ${fmtB(t.calc.amt)}</span></td>
                 <td style="${tdSC}font-weight:bold;">${t.rate}%</td>
                 <td style="${tdSL}font-size:10px;">${rowsHTML}</td>
               </tr>`;
@@ -893,9 +892,7 @@ function LTVModal({ onClose, salesData, incomeData, projectName, data, onChange 
                 <td style="${tdS}font-weight:bold;">
                   ${fmtN(t.calc.amt)}<br><span style="font-size:9px;color:#555;font-weight:normal;">≈ ${fmtB(t.calc.amt)}</span>
                 </td>
-                <td style="${tdS}font-weight:bold;">
-                  ${fmtN(rounded)}<br><span style="font-size:9px;color:#555;font-weight:normal;">≈ ${fmtB(rounded)}</span>
-                </td>
+                <td style="${tdS}font-weight:bold;">${fmtN(rounded)}</td>
                 <td style="${tdSC}">${pct}%</td>
                 <td style="${tdSC}">${t.rate}%</td>
                 <td style="${tdSL}font-size:10px;">${desc}</td>
