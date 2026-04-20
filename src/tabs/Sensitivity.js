@@ -239,7 +239,6 @@ export default function Sensitivity({
     });
 
     // ─── 스타일 ───
-    const bg = '-webkit-print-color-adjust:exact;print-color-adjust:exact;';
     const td = { padding:'5px 8px', fontSize:'11px', color:'#111', borderBottom:'1px solid #e8e8e8', background:'white', textAlign:'right', whiteSpace:'nowrap' };
     const tdL = { ...td, textAlign:'left' };
     const tdC = { ...td, textAlign:'center' };
@@ -249,7 +248,11 @@ export default function Sensitivity({
     const sectionRow = { ...tdL, background:'#eaeaea', fontWeight:'bold', fontSize:'10px', color:'#555', padding:'4px 8px' };
     const subtotalRow = { ...td, background:'#e8e8e8', fontWeight:'bold' };
     const subtotalRowL = { ...subtotalRow, textAlign:'left' };
-    const highlightCol = { background:'#fff3cd', ...bg }; // G 컬럼 강조용 (노란 배경)
+    const highlightCol = { 
+      background: '#fff3cd',
+      WebkitPrintColorAdjust: 'exact',
+      printColorAdjust: 'exact',
+    }; // G 컬럼 강조용 (노란 배경)
     const rateRow = { ...td, background:'#d5d5d5', fontWeight:'bold', borderTop:'2px solid #333', borderBottom:'2px solid #333' };
     const rateRowL = { ...rateRow, textAlign:'left' };
 
