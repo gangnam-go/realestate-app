@@ -90,6 +90,21 @@ export default function Sensitivity({
   const [collateralLoan, setCollateralLoan] = useState(0);
   const [collateralCost, setCollateralCost] = useState(0); // 담보대출비용 (수동 입력)
 
+  // 🔍 부가세 소스 탐색 (확인 후 삭제)
+  console.log('=== 부가세 소스 탐색 ===');
+  console.log('목표값: 4,640,047');
+  console.log('---');
+  console.log('salesData.vatByMonth:', salesData?.vatByMonth);
+  console.log('salesData.vatByMonth 합:', (salesData?.vatByMonth||[]).reduce((s,v)=>s+(v||0), 0));
+  console.log('monthlyPayments.vatSettlements:', monthlyPayments?.vatSettlements);
+  console.log('cashFlowResult.result 마지막 vatSettle:', cashFlowResult?.result?.[cashFlowResult.result.length-1]?.vatSettle);
+  const totalVatSettle = (cashFlowResult?.result||[]).reduce((s,r) => s + (r?.vatSettle||0), 0);
+  console.log('cashFlowResult.result의 vatSettle 합:', totalVatSettle);
+  
+  // vatData도 체크 (App.js에서 부가세안분 시트 전달)
+  console.log('costData.vatSettle:', costData?.vatSettle);
+  console.log('costData keys:', costData ? Object.keys(costData) : 'null');
+  
   // ─── (a) PF 금액 ───
   const pfAmount = useMemo(() => {
     const tranches = financeData?.ltvCalc?.tranches || [];
