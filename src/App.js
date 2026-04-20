@@ -10,6 +10,7 @@ import ProjectCost, { SettingsModal } from './tabs/ProjectCost';
 import VATCalculation from './tabs/VATCalculation';
 import Finance from './tabs/Finance';
 import Report from './tabs/Report';
+import Sensitivity from './tabs/Sensitivity';
 
 function App() {
   const [project,     setProject]     = useState(null);
@@ -22,7 +23,7 @@ function App() {
   const [cashFlowResult,   setCashFlowResult]   = useState(null);
   const [settingsData,     setSettingsData]     = useState({});
 
-  const tabs = ['건축개요', '수입', '분양율', '사업비', '금융', '보고서', '부가세안분'];
+  const tabs = ['건축개요', '수입', '분양율', '사업비', '금융', '보고서', '민감도', '부가세안분'];
 
   // ── 기준정보 로드 ──
   const loadSettings = async () => {
@@ -310,6 +311,18 @@ function App() {
             onSalesChange={handleSalesChange}
           />
         )}
+        {activeTab === '민감도' && (
+          <Sensitivity
+            projectName={project.name}
+            archData={projectData['건축개요'] || {}}
+            incomeData={projectData['수입'] || {}}
+            salesData={projectData['분양율'] || {}}
+            costData={projectData['사업비'] || {}}
+            financeData={projectData['금융'] || {}}
+            monthlyPayments={costResults?.monthlyPayments}
+            cashFlowResult={cashFlowResult}
+          />
+        )}      
         {activeTab === '부가세안분' && (
           <VATCalculation
             data={projectData['부가세안분'] || {}}
