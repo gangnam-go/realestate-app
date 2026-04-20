@@ -1371,10 +1371,14 @@ function CashFlowCalc({ salesData, monthlyPayments, financeData, onFinanceChange
   const ceilUnit  = (v) => Math.ceil(v / rUnit) * rUnit;
   const floorUnit = (v) => Math.floor(v / rUnit) * rUnit; // 억단위 내림
 
-  // ── 분양금 배분 (Report.js calcRows와 동일 로직) ──
-  const alloc    = salesData?.alloc || { over:{res:{dep:30,mid:30,bal:100},store:{all:40}}, under:{res:{dep:10,mid:10,bal:100},store:{all:40}} };
-  const baseRate = parseFloat(salesData?.baseRate||'80')||80;
-  const scenario = 'over'; // 기본 초과 시나리오
+  // ── 분양금 배분 (Report.js SaleAllocation와 동일 키 사용) ──
+  const alloc = {
+    over:   salesData?.allocOver   || { res:{dep:30,mid:30,bal:100}, store:{all:40} },
+    under:  salesData?.allocUnder  || { res:{dep:10,mid:10,bal:100}, store:{all:40} },
+    public: salesData?.allocPublic || { dep:100, mid:100, bal:100 },
+  };
+  const baseRate = parseFloat(salesData?.allocBaseRate||'60')||60;
+  const scenario = salesData?.allocScenario || 'over';
   const ymList   = salesData?.ymList || [];
   const hasVat   = !!(salesData?.aptDepMonthlyVat);
 
