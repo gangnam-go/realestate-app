@@ -548,7 +548,7 @@ export default function Sensitivity({
       }
       // ⑥ Equity
       const r6vals = rowVal(6, cost6);
-      rowsHtml += `<tr><td style="${tdSL};padding-left:16px;">⑥ 시행사 Equity 지급</td>${r6vals.map((v,i) => `<td style="${hCellStyle(i, tdS)}">${fmtUk(v)}</td>`).join('')}<td style="${noteStyle(false, false)}">Equity 회수</td></tr>`;
+      rowsHtml += `<tr><td style="${tdSL};padding-left:16px;">⑥ 시행사 Equity 지급</td>${r6vals.map((v,i) => `<td style="${hCellStyle(i, tdS)}">${fmtUk(v)}</td>`).join('')}<td style="${noteStyle(shortageEquity>0, false)}">${equityExitNote}</td></tr>`;
       
       // ⑦ 시행이익
       const r7CellS = `padding:${cellPad};font-size:${fontSize};font-weight:bold;color:${profitAtL<0?'#c0392b':'#1e8449'};border-bottom:1px solid #e8e8e8;background:white;text-align:right;white-space:nowrap;`;
