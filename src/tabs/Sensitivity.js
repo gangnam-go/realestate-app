@@ -31,6 +31,7 @@ export default function Sensitivity({
   console.log('incomeData.salesSumStore:',  incomeData?.salesSumStore);
   // 🔍 2차 진단 — 구체적인 값들
   console.log('=== 2차 진단 ===');
+
   console.log('--- 분양금액 (salesData의 salesSum들) ---');
   console.log('salesSumApt:',     salesData?.salesSumApt);
   console.log('salesSumBal:',     salesData?.salesSumBal);
@@ -40,18 +41,56 @@ export default function Sensitivity({
   console.log('salesSumPubfac:',  salesData?.salesSumPubfac);
   console.log('salesSumPublicBal:', salesData?.salesSumPublicBal);
 
-  console.log('--- PF 금액 (financeData.ltvCalc.tranches) ---');
-  console.log('tranches:', financeData?.ltvCalc?.tranches);
+  // 트랜치는 JSON으로 풀어서
+  console.log('--- PF 금액 (tranches) ---');
+  console.log(JSON.stringify(financeData?.ltvCalc?.tranches, null, 2));
 
-  console.log('--- Equity & 금리 (financeData.repayCondition) ---');
-  console.log('repayCondition:', financeData?.repayCondition);
+  // repayCondition 풀어서
+  console.log('--- repayCondition ---');
+  console.log(JSON.stringify(financeData?.repayCondition, null, 2));
 
+  // cashFlowResult 키들과 첫번째 값들
   console.log('--- cashFlowResult 키들 ---');
-  console.log('cashFlowResult keys:', cashFlowResult ? Object.keys(cashFlowResult) : 'null');
+  if (cashFlowResult) {
+    Object.keys(cashFlowResult).forEach(k => {
+      const v = cashFlowResult[k];
+      if (Array.isArray(v)) {
+        console.log(`${k}: Array(${v.length})`, v[0]); // 첫번째 요소만
+      } else {
+        console.log(`${k}:`, v);
+      }
+    });
+  }
 
-  console.log('--- costData.paymentSchedule (토지 잔금용) ---');
-  console.log('costData.land:', costData?.land);
-  console.log('costData.paymentSchedule keys:', costData?.paymentSchedule ? Object.keys(costData.paymentSchedule) : 'null');
+  // cashFlowResult.result의 마지막 행 (사업종료월)
+  console.log('--- cashFlowResult.result 마지막 ---');
+  if (cashFlowResult?.result?.length > 0) {
+    console.log('last row keys:', Object.keys(cashFlowResult.result[cashFlowResult.result.length-1]));
+    console.log('last row:', JSON.stringify(cashFlowResult.result[cashFlowResult.result.length-1], null, 2));
+  }
+
+  // costData.land 풀어서
+  console.log('--- costData.land ---');
+  console.log(JSON.stringify(costData?.land, null, 2));
+
+  // costData.paymentSchedule 키들
+  console.log('--- costData.paymentSchedule 키들 ---');
+  console.log('keys:', costData?.paymentSchedule ? Object.keys(costData.paymentSchedule) : 'null');
+
+  // monthlyPayments 키들
+  console.log('--- monthlyPayments 키들 ---');
+  if (monthlyPayments) {
+    Object.keys(monthlyPayments).forEach(k => {
+      const v = monthlyPayments[k];
+      if (Array.isArray(v)) {
+        console.log(`${k}: Array(${v.length})`, v.length > 0 ? `[0]=${v[0]}, [${v.length-1}]=${v[v.length-1]}` : '');
+      } else if (typeof v === 'object' && v !== null) {
+        console.log(`${k}: Object keys=`, Object.keys(v));
+      } else {
+        console.log(`${k}:`, v);
+      }
+    });
+  }
   
   const [view, setView] = React.useState('saleRate');
 
