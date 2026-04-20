@@ -725,7 +725,11 @@ function LTVModal({ onClose, salesData, incomeData, projectName, data, onChange 
     }).filter(t => t.calc.amt > 0);
 
     const totalAmtP = tranchesPrint.reduce((s,t) => s+t.calc.amt, 0);
-    const diffP     = collTotal - totalAmtP;
+    const totalRoundedP = tranchesPrint.reduce((s,t,ti) => {
+      const idx = tranches.findIndex(tr => tr.name === t.name);
+      return s + (trancheRounded[idx]?.amtRounded || 0);
+    }, 0);
+    const diffP = collTotal - totalAmtP;
 
     // ─── 흑백 그레이 톤 스타일 ───
     const bg = '-webkit-print-color-adjust:exact;print-color-adjust:exact;';
@@ -872,6 +876,7 @@ function LTVModal({ onClose, salesData, incomeData, projectName, data, onChange 
         <thead><tr>
           <th style="${thSL}">트랜치</th>
           <th style="${thS}">금액 (천원)</th>
+          <th style="${thS}">PF 금액 (천원)</th>
           <th style="${thSC}width:70px;">비중 (%)</th>
           <th style="${thSC}width:70px;">금리 (%)</th>
           <th style="${thSL}">구성항목</th>
@@ -880,11 +885,16 @@ function LTVModal({ onClose, salesData, incomeData, projectName, data, onChange 
           ${tranchesPrint.map(t => {
             const pct = totalAmtP > 0 ? (t.calc.amt/totalAmtP*100).toFixed(1) : '0.0';
             const desc = t.rows.map(r => `${r.use} ${r.pct}%`).join(' / ');
+            const idx = tranches.findIndex(tr => tr.name === t.name);
+            const rounded = trancheRounded[idx]?.amtRounded || 0;
             return `
               <tr>
                 <td style="${tdSL}font-weight:bold;">${t.name}</td>
                 <td style="${tdS}font-weight:bold;">
                   ${fmtN(t.calc.amt)}<br><span style="font-size:9px;color:#555;font-weight:normal;">≈ ${fmtB(t.calc.amt)}</span>
+                </td>
+                <td style="${tdS}font-weight:bold;">
+                  ${fmtN(rounded)}<br><span style="font-size:9px;color:#555;font-weight:normal;">≈ ${fmtB(rounded)}</span>
                 </td>
                 <td style="${tdSC}">${pct}%</td>
                 <td style="${tdSC}">${t.rate}%</td>
@@ -896,6 +906,7 @@ function LTVModal({ onClose, salesData, incomeData, projectName, data, onChange 
           <tr>
             <td style="${totSL}">합 계</td>
             <td style="${totS}">${fmtN(totalAmtP)}</td>
+            <td style="${totS}">${fmtN(totalRoundedP)}</td>
             <td style="${totSC}">100.0%</td>
             <td style="${totSC}">—</td>
             <td style="${totSL}">—</td>
