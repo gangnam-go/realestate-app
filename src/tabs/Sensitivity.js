@@ -11,16 +11,24 @@ export default function Sensitivity({
   cashFlowResult,
 }) {
   // 🔍 진단용 로그 (확인 후 삭제)
-  console.log('🔍 Sensitivity 데이터 구조:', {
-    projectName,
-    archData,
-    incomeData,
-    salesData,
-    costData,
-    financeData,
-    monthlyPayments,
-    cashFlowResult,
-  });
+  console.log('=== Sensitivity 데이터 구조 ===');
+  console.log('projectName:', projectName);
+  console.log('archData keys:',     archData     ? Object.keys(archData)     : 'null');
+  console.log('incomeData keys:',   incomeData   ? Object.keys(incomeData)   : 'null');
+  console.log('salesData keys:',    salesData    ? Object.keys(salesData)    : 'null');
+  console.log('costData keys:',     costData     ? Object.keys(costData)     : 'null');
+  console.log('financeData keys:',  financeData  ? Object.keys(financeData)  : 'null');
+  console.log('monthlyPayments:',   monthlyPayments);
+  console.log('cashFlowResult:',    cashFlowResult);
+  console.log('--- financeData 상세 ---');
+  console.log('financeData.ltvCalc:',       financeData?.ltvCalc);
+  console.log('financeData.eqMonthly:',     financeData?.eqMonthly);
+  console.log('--- incomeData 상세 ---');
+  console.log('incomeData.salesAmt:',       incomeData?.salesAmt);
+  console.log('incomeData.salesSumRes:',    incomeData?.salesSumRes);
+  console.log('incomeData.salesSumBal:',    incomeData?.salesSumBal);
+  console.log('incomeData.salesSumOffi:',   incomeData?.salesSumOffi);
+  console.log('incomeData.salesSumStore:',  incomeData?.salesSumStore);
   
   const [view, setView] = React.useState('saleRate');
 
