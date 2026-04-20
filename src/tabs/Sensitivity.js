@@ -272,7 +272,13 @@ export default function Sensitivity({
     if (cost5 > 0) {
       rows.push({ type:'data', label:'⑤ 토지 잔금 지급', values: rowVal(5, cost5), note:'토지 잔금 회수' });
     }
-    rows.push({ type:'data', label:'⑥ 시행사 Equity 지급', values: rowVal(6, cost6), note:'Equity 회수' });
+    rows.push({ 
+      type:'data', 
+      label:'⑥ 시행사 Equity 지급', 
+      values: rowVal(6, cost6), 
+      note: equityExitNote,
+      exitFail: shortageEquity > 0,
+    });
 
     // ⑦ 시행이익 (L 컬럼에서만) = (d) - 모든 지출 - 부가세 납부
     // vatSettle > 0 이면 납부(차감), < 0 이면 환급(가산)
