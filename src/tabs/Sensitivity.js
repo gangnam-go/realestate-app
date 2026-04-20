@@ -212,16 +212,56 @@ export default function Sensitivity({
     }
     rows.push({ type:'subtotal', label:'(d) 총 가용 금액', values: colD });
     rows.push({ type:'section', label:'■ 지출 순위 (자금 지급 순서)' });
-    // EXIT 가능 여부 + 부족금 계산 (분양최대 = saleMax 대비)
-    const shortageF = Math.max(0, (cost1 + cost2 - pfAmount - collateralLoan) - saleMax);
-    const shortageG = Math.max(0, (cost1 + cost2 + cost3 - pfAmount - collateralLoan) - saleMax);
+    // 🎯 EXIT 판단 로직
+    // 총가용 최대치 (100% 분양 시)
+    const totalAvail = pfAmount + saleMax + collateralLoan;
     
-    const sigongExitNote = shortageF > 0 
-      ? `🏗️ 시공사 EXIT 불가 (${fmtUk(shortageF)} 부족)`
-      : '🏗️ 시공사 EXIT';
-    const pfExitNote = shortageG > 0
-      ? `🏦 금융기관 EXIT 불가 (${fmtUk(shortageG)} 부족)`
-      : '🏦 금융기관 EXIT';
+    // 누적 지출
+    const cum1 = cost1;                  // 시공사 공사비 일부 (필수사업비)
+    const cum2 = cum1 + cost2;           // 시공사 공사비 전체 (분양연동 포함)
+    const cum3 = cum2 + cost3;           // PF 상환까지
+    const cum5 = cum3 + cost4 + cost5;   // 담보대출비용 + 토지잔금
+    const cum6 = cum5 + cost6;           // Equity까지
+    
+    // 각 단계 부족금 계산
+    const shortageSigong = Math.max(0, cum2 - totalAvail);   // 시공사 EXIT 부족분
+    const shortagePF     = Math.max(0, cum3 - totalAvail);   // 금융기관 EXIT 부족분
+    const shortageEquity = Math.max(0, cum6 - totalAvail);   // Equity 회수 부족분
+    
+    // 시공사 EXIT 메시지: 필수사업비(①)도 못 커버하면 "전액 불가"
+    const sigongExitNote = (() => {
+      if (shortageSigong <= 0) return '🏗️ 시공사 EXIT';
+      // ①조차 못 커버하는 최악 케이스
+      if (cum1 > totalAvail) {
+        const short1 = cum1 - totalAvail;
+        return `🏗️ 시공사 EXIT 불가 (${fmtUk(short1)} 회수 불가)`;
+      }
+      // 일부만 부족
+      return `🏗️ 시공사 EXIT 불가 (${fmtUk(shortageSigong)} 부족)`;
+    })();
+    
+    // 금융기관 EXIT 메시지
+    const pfExitNote = (() => {
+      if (shortagePF <= 0) return '🏦 금융기관 EXIT';
+      // 시공사 ②까지 못 커버하면 PF는 전액 회수 불가
+      if (cum2 > totalAvail) {
+        return `🏦 금융기관 EXIT 불가 (${fmtUk(cost3)} 회수 불가)`;
+      }
+      // 일부만 부족
+      return `🏦 금융기관 EXIT 불가 (${fmtUk(shortagePF)} 부족)`;
+    })();
+    
+    // Equity 회수 메시지
+    const equityExitNote = (() => {
+      if (cost6 <= 0) return '';  // Equity 자체가 없으면 표시 안 함
+      if (shortageEquity <= 0) return 'Equity 회수';
+      // ③PF까지 못 커버하면 Equity는 전액 회수 불가
+      if (cum3 > totalAvail) {
+        return `Equity 회수 불가 (${fmtUk(cost6)} 회수 불가)`;
+      }
+      // 일부만 부족
+      return `Equity 일부 회수 불가 (${fmtUk(shortageEquity)} 부족)`;
+    })();
     
     rows.push({ type:'data', label:'① 필수사업비', values: rowVal(1, cost1), note: sigongExitNote, exitFail: shortageF > 0 });
     rows.push({ type:'data', label:'② 분양 연동 지출 사업비', values: rowVal(2, cost2) });
@@ -665,8 +705,8 @@ export default function Sensitivity({
 
           <div style={{ marginTop:'16px', padding:'10px', background:'#f5f5f5', border:'1px solid #ccc', borderRadius:'6px', fontSize:'11px', color:'#555' }}>
             <div><strong>※ 컬럼 설명</strong></div>
-            <div style={{ marginTop:'4px' }}>• <strong>E:</strong> 필수사업비 커버되는 분양률</div>
-            <div>• <strong>F:</strong> + 분양연동 사업비 (시공사 EXIT)</div>
+            <div style={{ marginTop:'4px' }}>• <strong>E:</strong> 필수사업비 커버되는 분양률 (시공사 EXIT)</div>
+            <div>• <strong>F:</strong> + 분양연동 사업비</div>
             <div>• <strong>G:</strong> ⭐ + PF 대출상환 (금융기관 EXIT)</div>
             {cost4 > 0 && <div>• <strong>H:</strong> + 담보대출비용</div>}
             {cost5 > 0 && <div>• <strong>I:</strong> + 토지 잔금</div>}
