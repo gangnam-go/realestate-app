@@ -600,7 +600,6 @@ function ArchOverview({ data, onChange, onSave, saving }) {
 
   return (
     <div>
-      console.log('🔄 ArchOverview 렌더링', { plotsLen: plots.length, plot0: plots[0] });
       {showLand && <LandModal plots={plots} setPlots={setPlots} onClose={() => setShowLand(false)} />}
       {showPeriod && (
         <PeriodCalcModal
