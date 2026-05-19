@@ -578,7 +578,7 @@ function ArchOverview({ data, onChange, onSave, saving }) {
     });
     onChange({ ...data, plots, plotGroupTotals: groupTotals });
   }, [plots]); // eslint-disable-line
-  useEffect(() => { if (data.plots) setPlots(data.plots); }, [data.plots]);
+  
 
   // ── 자동계산 ──
   const totalM2  = plots.reduce((s, p) => s + (parseFloat(parseNumber(p.areaM2)) || 0), 0);
