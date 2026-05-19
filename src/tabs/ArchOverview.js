@@ -525,9 +525,9 @@ function LandModal({ plots, setPlots, onClose }) {
                   <td style={td}><input style={inpL} value={p.type}       onChange={e => update(i, 'type',       e.target.value)} /></td>
                   <td style={td}><input style={inpL} value={p.mainNo}     onChange={e => update(i, 'mainNo',     e.target.value)} /></td>
                   <td style={td}><input style={inpL} value={p.subNo}      onChange={e => update(i, 'subNo',      e.target.value)} /></td>
-                  <td style={td}><input style={inp}  value={p.areaM2}     onChange={e => update(i, 'areaM2',     e.target.value)} /></td>
+                  <td style={td}><input style={inp}  value={p.areaM2}     onChange={e => update(i, 'areaM2',     e.target.value)} onBlur={() => updateBlur(i, 'areaM2')} /></td>
                   <td style={td}><input style={ro}   value={p.areaPy}     readOnly /></td>
-                  <td style={td}><input style={inp}  value={p.pricePerM2} onChange={e => update(i, 'pricePerM2', e.target.value)} /></td>
+                  <td style={td}><input style={inp}  value={p.pricePerM2} onChange={e => update(i, 'pricePerM2', e.target.value)} onBlur={() => updateBlur(i, 'pricePerM2')} /></td>
                   <td style={td}><input style={ro}   value={p.totalPrice} readOnly /></td>
                   <td style={td}>
                     <select value={p.group || 'A'} onChange={e => update(i, 'group', e.target.value)}
