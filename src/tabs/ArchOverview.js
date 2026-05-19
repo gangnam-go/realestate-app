@@ -419,8 +419,16 @@ function LandModal({ plots, setPlots, onClose }) {
     setShowPaste(false);
   };
 
+// 타이핑 중에는 그대로 저장 (포맷팅 X)
   const update = (i, key, val) => {
     const next = plots.map((p, idx) => idx === i ? { ...p, [key]: val } : p);
+    setPlots(next);
+  };
+
+  // 포커스를 벗어날 때(onBlur) 포맷팅 + 계산
+  const updateBlur = (i, key) => {
+    const next = plots.map((p, idx) => ({ ...p }));
+    const val = next[i][key];
     if (key === 'areaM2') {
       const raw = parseNumber(val);
       next[i].areaM2 = formatNumber(raw);
@@ -430,9 +438,10 @@ function LandModal({ plots, setPlots, onClose }) {
       if (price > 0 && m2v > 0) next[i].totalPrice = formatNumber(Math.round(m2v * price));
     }
     if (key === 'pricePerM2') {
-      next[i].pricePerM2 = formatNumber(parseNumber(val));
+      const raw = parseNumber(val);
+      next[i].pricePerM2 = formatNumber(raw);
       const m2v  = parseFloat(parseNumber(next[i].areaM2)) || 0;
-      const price = parseFloat(parseNumber(val)) || 0;
+      const price = parseFloat(raw) || 0;
       if (m2v > 0 && price > 0) next[i].totalPrice = formatNumber(Math.round(m2v * price));
     }
     setPlots(next);
